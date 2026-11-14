@@ -27,6 +27,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
       DEMO_SEED_USERS: ${DEMO_SEED_USERS:-true}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-CloudPilot#2026}
+      # Optional. Without it, incident analysis uses the rule-based analyser.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8080:8080"
     depends_on:
