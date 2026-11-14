@@ -24,6 +24,56 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M2: Authentication and roles
+
+**Built:** `users` table (Flyway V2), BCrypt passwords, JWT login (`/api/v1/auth/login`),
+`/auth/me`, admin-only `/users`, three roles with `@PreAuthorize`, demo users seeded on
+startup, a prod startup safety check. Frontend: API client, auth context, login page with demo
+buttons, route guard, layout with role badge and sign out.
+
+**Decisions and why:**
+- Spring Security's resource server + Nimbus instead of a JWT library like jjwt: validation
+  (signature, expiry, issuer) is done by battle-tested framework code, not by me.
+- HS256 with one secret: the API issues and validates its own tokens. RS256 would only help if
+  other services needed to verify them (ADR-0003).
+- Same 401 message for unknown email and wrong password, and a dummy BCrypt check for unknown
+  emails so the response time doesn't leak which emails exist.
+- Role lives in the token, so `/auth/me` needs no database call. Downside: a role change only
+  takes effect when the user's token expires (max 1 hour).
+- The React route guard is only UX. Real protection is the backend rejecting requests.
+- `ProductionSafetyCheck` crashes startup in prod if the dev secret is still set. A failed
+  deploy is safer than a running app where anyone can forge tokens.
+
+**What broke / what confused me:**
+- Adding Spring Security made every endpoint require login, including `/ping`. `@WebMvcTest`
+  slices also don't load my `SecurityConfig`, so I had to `@Import` it into the test.
+- My `/users` RBAC test failed with a Jackson error: the endpoint returns a JSON *array* and the
+  test read it as a `Map`. Bug in the test, not the code.
+- Setting `JWT_SECRET=` (empty) in Compose didn't fall back to the `application.yml` default.
+  Spring treats an empty env var as a real value. Moved the dev default into Compose.
+- The demo user seeder put users into the test database and clashed with tests that create
+  their own users. Disabled seeding for integration tests.
+
+**What I learned:**
+- How a JWT is built: header + claims + signature, Base64URL-encoded. Anyone can *read* the
+  claims; the signature only proves nobody *changed* them. Never put secrets in claims.
+- `@PreAuthorize("hasRole('ADMIN')")` checks for the authority `ROLE_ADMIN`; the converter adds
+  the `ROLE_` prefix.
+- 401 = "who are you?" (not authenticated), 403 = "I know who you are, but no" (not allowed).
+
+**Interview questions I can now answer:**
+- Q: Where do you store the JWT in the browser and why?
+  A: sessionStorage, sent in the Authorization header. It survives refresh but not closing the
+  tab, and there's no CSRF risk because it's not a cookie. The risk is XSS, so tokens are short
+  (1 hour). The better version is a short access token in memory plus a refresh token in an
+  HttpOnly SameSite cookie.
+- Q: How would you log someone out before their token expires?
+  A: With pure stateless JWTs you can't. Options: keep tokens short, keep a deny-list of token
+  ids (`jti`) in Redis checked on each request, or store a "tokens valid after" timestamp per user.
+- Q: Why BCrypt and not SHA-256 for passwords?
+  A: SHA-256 is designed to be fast, so attackers can try billions of guesses per second.
+  BCrypt is deliberately slow, has a tunable cost factor and a built-in salt.
+
 ## 2026-11-14 — M1: Walking skeleton
 
 **Built:** Spring Boot 3.5 API on Java 21 with `/api/v1/ping` and Actuator health, PostgreSQL
