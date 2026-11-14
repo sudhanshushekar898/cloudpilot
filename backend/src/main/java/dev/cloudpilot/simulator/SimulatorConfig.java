@@ -14,4 +14,9 @@ public class SimulatorConfig {
     public MetricGenerator metricGenerator() {
         return new MetricGenerator(new Random());
     }
+
+    @Bean
+    public LogGenerator logGenerator() {
+        return new LogGenerator(new Random());
+    }
 }

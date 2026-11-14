@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import dev.cloudpilot.metrics.EventStore;
+import dev.cloudpilot.metrics.LogEvent;
 import dev.cloudpilot.metrics.MetricSample;
 import dev.cloudpilot.metrics.MetricStore;
 import dev.cloudpilot.metrics.MetricType;
@@ -39,12 +41,18 @@ class SimulatorJobTest {
     @Mock
     private MetricStore store;
 
+    @Mock
+    private EventStore events;
+
+    private ScenarioManager scenarios;
     private SimulatorJob job;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        job = new SimulatorJob(resources, store, new MetricGenerator(new Random(1)), new ScenarioManager(clock),
+        scenarios = new ScenarioManager(clock);
+        job = new SimulatorJob(resources, store, events, new MetricGenerator(new Random(1)),
+                new LogGenerator(new Random(1)), scenarios,
                 new SimulatorProperties(true, Duration.ofSeconds(10), Duration.ofHours(1)), clock);
     }
 
@@ -70,6 +78,24 @@ class SimulatorJobTest {
         Collection<MetricSample> batch = savedBatch();
         assertThat(batch).hasSize(2 * MetricType.values().length);
         assertThat(batch).allSatisfy(s -> assertThat(s.recordedAt()).isEqualTo(NOW));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void tickWritesScenarioLogsWhileAFailureIsRunning() {
+        givenTwoResources();
+        // Started at NOW; the job below runs 5 minutes later, when the DB scenario is at full strength.
+        scenarios.start(ScenarioType.DB_CONNECTION_EXHAUSTION, "test");
+        Clock later = Clock.fixed(NOW.plus(Duration.ofMinutes(5)), ZoneOffset.UTC);
+        SimulatorJob laterJob = new SimulatorJob(resources, store, events, new MetricGenerator(new Random(1)),
+                new LogGenerator(new Random(1)), scenarios,
+                new SimulatorProperties(true, Duration.ofSeconds(10), Duration.ofHours(1)), later);
+
+        laterJob.tick();
+
+        ArgumentCaptor<Collection<LogEvent>> logs = ArgumentCaptor.forClass(Collection.class);
+        verify(events).saveLogs(logs.capture());
+        assertThat(logs.getValue()).hasSize(2);   // orders-db and checkout-api both have log templates
     }
 
     @Test
