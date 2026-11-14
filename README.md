@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M5 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M6 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -114,6 +114,22 @@ Alerts are grouped into incidents so one failure pages once, not five times:
 
 Details: [ADR-0006](docs/adr/0006-incident-grouping-and-lifecycle.md).
 
+## Runbooks (knowledge base)
+
+Runbooks are the team's written knowledge, and the only source the AI assistant will be allowed to cite.
+
+- Five runbooks ship with the app (DB connection exhaustion, bad deployment and rollback, queue
+  backlog, pod memory leak, API latency triage). Admins can add more by pasting or uploading Markdown.
+- Each runbook is split by heading into sections that keep their path, e.g.
+  *Orders DB connection exhaustion > Verify*.
+- Search uses PostgreSQL full-text search (`tsvector` + GIN index, heading words weighted higher).
+  It needs no API key and gives the same result every time, so retrieval quality is tested like any other code.
+- Every incident shows **suggested runbooks**, found by searching with the incident's alert
+  messages, affected resources and recent error logs.
+- A retrieval evaluation test checks that the right runbook ranks first for every failure scenario.
+
+Why not embeddings yet: [ADR-0007](docs/adr/0007-runbook-retrieval-with-full-text-search.md).
+
 ## API
 
 | Method | Path | Access | Description |
@@ -144,6 +160,12 @@ Details: [ADR-0006](docs/adr/0006-incident-grouping-and-lifecycle.md).
 | POST | `/api/v1/incidents/{id}/assign` | SRE, Admin | Assign to an SRE or admin |
 | POST | `/api/v1/incidents/{id}/comments` | signed in | Add a comment |
 | GET | `/api/v1/users/assignable` | SRE, Admin | People an incident can be assigned to |
+| GET | `/api/v1/runbooks` | signed in | All runbooks |
+| GET | `/api/v1/runbooks/{slug}` | signed in | One runbook (Markdown) |
+| GET | `/api/v1/runbooks/search?q=` | signed in | Ranked sections with highlighted snippets |
+| GET | `/api/v1/runbooks/suggestions?incidentId=` | signed in | Sections relevant to an incident |
+| POST | `/api/v1/runbooks` | Admin | Add a Markdown runbook (409 on duplicate title) |
+| DELETE | `/api/v1/runbooks/{slug}` | Admin | Delete a runbook |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 
