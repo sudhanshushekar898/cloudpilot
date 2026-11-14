@@ -24,6 +24,9 @@ cloudpilot:
       secret: ${JWT_SECRET:dev-only-insecure-jwt-secret-change-me-0123456789}
       ttl: 1h
       issuer: cloudpilot
+  demo:
+    seed-users: ${DEMO_SEED_USERS:true}
+    password: ${DEMO_PASSWORD:CloudPilot#2026}
 
 server:
   port: 8080
