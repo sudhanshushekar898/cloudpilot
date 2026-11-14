@@ -61,9 +61,10 @@ class KnowledgeApiIntegrationTest extends IntegrationTest {
     void seededRunbooksAreListed() {
         List<Map<String, Object>> runbooks = call(HttpMethod.GET, "/api/v1/runbooks", null, Role.DEVELOPER, LIST).getBody();
 
+        // Slugs come from titles (same rule as uploads), not from file names.
         assertThat(runbooks).extracting(r -> r.get("slug")).contains(
-                "orders-db-connection-exhaustion", "bad-deployment-rollback", "payments-queue-backlog",
-                "pod-memory-leak-oomkilled", "api-high-latency-triage");
+                "orders-db-connection-exhaustion", "bad-deployment-and-rollback", "payments-queue-backlog",
+                "pod-memory-leak-and-oomkilled-restarts", "api-high-latency-triage");
         assertThat(runbooks.getFirst()).containsKeys("title", "chunkCount", "updatedAt");
     }
 
