@@ -53,6 +53,10 @@ public class UserAccount {
         this.createdAt = createdAt;
     }
 
+    public void disable() {
+        this.enabled = false;
+    }
+
     public UUID getId() {
         return id;
     }
