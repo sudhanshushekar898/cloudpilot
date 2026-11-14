@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', ready: true },
   { to: '/alerts', label: 'Alerts', ready: true },
   { to: '/incidents', label: 'Incidents', ready: true },
-  { to: '/runbooks', label: 'Runbooks', ready: false },
+  { to: '/runbooks', label: 'Runbooks', ready: true },
   { to: '/reports', label: 'Reports', ready: false },
 ]
 

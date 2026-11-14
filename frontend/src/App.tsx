@@ -8,6 +8,8 @@ import DashboardPage from './pages/DashboardPage'
 import IncidentDetailPage from './pages/IncidentDetailPage'
 import IncidentsPage from './pages/IncidentsPage'
 import LoginPage from './pages/LoginPage'
+import RunbookPage from './pages/RunbookPage'
+import RunbooksPage from './pages/RunbooksPage'
 
 // Recharts is large; load it only when someone opens a resource's charts.
 const ResourceDetailPage = lazy(() => import('./pages/ResourceDetailPage'))
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="alerts/rules" element={<AlertRulesPage />} />
           <Route path="incidents" element={<IncidentsPage />} />
           <Route path="incidents/:id" element={<IncidentDetailPage />} />
+          <Route path="runbooks" element={<RunbooksPage />} />
+          <Route path="runbooks/:slug" element={<RunbookPage />} />
           <Route
             path="resources/:id"
             element={
