@@ -65,6 +65,13 @@ class AuthFlowIntegrationTest extends IntegrationTest {
         return rest.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
     }
 
+    private HttpStatus statusOf(String path, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        return (HttpStatus) rest.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), String.class)
+                .getStatusCode();
+    }
+
     @Test
     void validLoginReturnsBearerTokenAndUser() {
         ResponseEntity<Map> response = login("sre@test.dev", PASSWORD);
@@ -122,11 +129,8 @@ class AuthFlowIntegrationTest extends IntegrationTest {
 
     @Test
     void onlyAdminsCanListUsers() {
-        assertThat(getWithToken("/api/v1/users", tokenFor("admin@test.dev")).getStatusCode())
-                .isEqualTo(HttpStatus.OK);
-        assertThat(getWithToken("/api/v1/users", tokenFor("sre@test.dev")).getStatusCode())
-                .isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(getWithToken("/api/v1/users", tokenFor("dev@test.dev")).getStatusCode())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(statusOf("/api/v1/users", tokenFor("admin@test.dev"))).isEqualTo(HttpStatus.OK);
+        assertThat(statusOf("/api/v1/users", tokenFor("sre@test.dev"))).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(statusOf("/api/v1/users", tokenFor("dev@test.dev"))).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }
