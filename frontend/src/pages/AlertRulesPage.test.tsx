@@ -29,8 +29,9 @@ const availability: AlertRule = {
   resourceType: null,
 }
 
-function bodyOf(spy: ReturnType<typeof vi.spyOn>, method: string) {
-  const call = spy.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === method)!
+/** JSON body of the first fetch call made with {@code method}. */
+function bodyOf(spy: { mock: { calls: unknown[][] } }, method: string) {
+  const call = spy.mock.calls.find((args) => (args[1] as RequestInit | undefined)?.method === method)!
   return JSON.parse((call[1] as RequestInit).body as string)
 }
 
