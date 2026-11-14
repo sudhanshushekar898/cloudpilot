@@ -66,6 +66,8 @@ describe('AlertRulesPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Disable API error rate above 5%' }))
 
+    // The mutation sends the request asynchronously; wait for it instead of racing it.
+    await vi.waitFor(() => expect(() => bodyOf(fetchSpy, 'PUT')).not.toThrow())
     expect(bodyOf(fetchSpy, 'PUT')).toEqual({
       name: 'API error rate above 5%',
       metric: 'ERROR_RATE',
@@ -92,6 +94,7 @@ describe('AlertRulesPage', () => {
     await userEvent.selectOptions(screen.getByLabelText('Applies to'), 'EC2')
     await userEvent.click(screen.getByRole('button', { name: 'Save rule' }))
 
+    await vi.waitFor(() => expect(() => bodyOf(fetchSpy, 'POST')).not.toThrow())
     expect(bodyOf(fetchSpy, 'POST')).toMatchObject({
       name: 'Web CPU high',
       metric: 'CPU',

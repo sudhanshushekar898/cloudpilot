@@ -18,9 +18,14 @@ const hit: RunbookHit = {
   content: '...', snippet: 'orders-db logs [[too]] many [[clients]] already', score: 0.4,
 }
 
-function postBody(spy: { mock: { calls: unknown[][] } }) {
-  const call = spy.mock.calls.find((args) => (args[1] as RequestInit | undefined)?.method === 'POST')!
-  return JSON.parse((call[1] as RequestInit).body as string)
+/** Waits for the POST (mutations send it asynchronously) and returns its JSON body. */
+async function postBody(spy: { mock: { calls: unknown[][] } }) {
+  let call: unknown[] | undefined
+  await vi.waitFor(() => {
+    call = spy.mock.calls.find((args) => (args[1] as RequestInit | undefined)?.method === 'POST')
+    expect(call).toBeDefined()
+  })
+  return JSON.parse((call![1] as RequestInit).body as string)
 }
 
 describe('RunbooksPage', () => {
@@ -57,7 +62,7 @@ describe('RunbooksPage', () => {
     await userEvent.type(screen.getByLabelText('Markdown'), '## Symptoms{Enter}{Enter}Keys evicted.')
     await userEvent.click(screen.getByRole('button', { name: 'Save runbook' }))
 
-    expect(postBody(spy)).toEqual({ title: 'Redis eviction storm', content: '## Symptoms\n\nKeys evicted.' })
+    expect(await postBody(spy)).toEqual({ title: 'Redis eviction storm', content: '## Symptoms\n\nKeys evicted.' })
   })
 
   it('hides the add button from non-admins', async () => {
