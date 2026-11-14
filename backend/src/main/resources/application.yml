@@ -27,6 +27,12 @@ cloudpilot:
   demo:
     seed-users: ${DEMO_SEED_USERS:true}
     password: ${DEMO_PASSWORD:CloudPilot#2026}
+  simulator:
+    enabled: ${SIMULATOR_ENABLED:true}
+    interval: 10s
+    backfill: 1h
+  metrics:
+    retention: 7d
 
 server:
   port: 8080
