@@ -5,6 +5,8 @@ import AppLayout from './components/AppLayout'
 import AlertRulesPage from './pages/AlertRulesPage'
 import AlertsPage from './pages/AlertsPage'
 import DashboardPage from './pages/DashboardPage'
+import IncidentDetailPage from './pages/IncidentDetailPage'
+import IncidentsPage from './pages/IncidentsPage'
 import LoginPage from './pages/LoginPage'
 
 // Recharts is large; load it only when someone opens a resource's charts.
@@ -19,6 +21,8 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="alerts/rules" element={<AlertRulesPage />} />
+          <Route path="incidents" element={<IncidentsPage />} />
+          <Route path="incidents/:id" element={<IncidentDetailPage />} />
           <Route
             path="resources/:id"
             element={
