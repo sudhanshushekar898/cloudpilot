@@ -13,7 +13,10 @@ import org.testcontainers.utility.DockerImageName;
  * URLs or passwords live in test config. Same image as docker-compose, so
  * migrations are tested against exactly what runs in production.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        // Tests create exactly the data they need; demo users would only get in the way.
+        properties = "cloudpilot.demo.seed-users=false")
 public abstract class IntegrationTest {
 
     @ServiceConnection
