@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M2 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M3 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -54,6 +54,34 @@ Created automatically on startup (disable with `DEMO_SEED_USERS=false`):
 
 The login page has a button for each one.
 
+## Simulated environment
+
+CloudPilot monitors a simulated e-commerce checkout system, so the demo is free and repeatable:
+
+```
+web-frontend (EC2) ──> checkout-api (API) ──> orders-db (RDS)
+                  └──> catalog-api (API)  └──> payments-queue (QUEUE) <── payments-worker (POD)
+                           └──> inventory-pod (POD)        payments-worker ──> orders-db
+```
+
+Every 10 seconds the simulator writes CPU, memory, p95 latency, error rate and availability
+for each resource: a typical baseline for its type plus random noise. On first start it
+backfills one hour of history so the charts aren't empty.
+
+Admins can start a failure scenario from the dashboard. Each one hits the root cause hardest,
+and the resources that depend on it show knock-on symptoms:
+
+| Scenario | Root cause | Knock-on effects | Duration |
+|---|---|---|---|
+| DB connection pool exhausted | orders-db CPU, latency, errors | checkout-api slow and failing, web-frontend errors | 15 min |
+| Bad checkout-api deployment | checkout-api 38% errors, 70% availability | web-frontend errors | 10 min |
+| Payments queue backlog | payments-queue message age grows | payments-worker CPU, checkout-api latency | 15 min |
+| Memory leak in payments-worker | memory grows steadily | availability drops as pods restart | 20 min |
+
+Resource status on the cards comes from the latest values: **Down** when availability is
+below 90%, **Degraded** when error rate ≥ 5%, p95 latency ≥ 1 s, CPU or memory ≥ 90%, or
+availability below 99%.
+
 ## API
 
 | Method | Path | Access | Description |
@@ -63,6 +91,12 @@ The login page has a button for each one.
 | POST | `/api/v1/auth/login` | public | Email + password → JWT (1 hour) |
 | GET | `/api/v1/auth/me` | signed in | Current user from the token |
 | GET | `/api/v1/users` | Admin | List users |
+| GET | `/api/v1/resources` | signed in | All resources with status and latest metrics |
+| GET | `/api/v1/resources/{id}` | signed in | One resource |
+| GET | `/api/v1/resources/{id}/metrics?minutes=60` | signed in | Bucketed history (1–1440 min, ≤120 points per metric) |
+| GET | `/api/v1/simulator` | signed in | Scenario catalogue and the running scenario |
+| POST | `/api/v1/simulator/scenarios/{type}/start` | Admin | Start a failure scenario |
+| POST | `/api/v1/simulator/stop` | Admin | Stop the running scenario |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 

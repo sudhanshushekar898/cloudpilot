@@ -24,6 +24,60 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M3: Resources, metrics and the failure simulator
+
+**Built:** resources + dependency graph + metric samples (Flyway V3), a seeded 7-resource checkout
+topology (V4), `MetricStore` on JDBC, health status per resource, a simulator that writes metrics
+every 10 s and backfills an hour on startup, four failure scenarios that admins can start, a
+nightly retention job. Frontend: live dashboard (cards sorted worst-first, health summary,
+scenario panel) and a detail page with five Recharts charts, dependencies and a time-range picker.
+
+**Decisions and why:**
+- Plain JDBC for metrics, JPA for everything else (ADR-0004). Hibernate can't batch inserts into a
+  `BIGSERIAL` table, and the reads are aggregations SQL is good at: `DISTINCT ON` for the newest
+  value, `date_bin` + `avg` for chart buckets.
+- The database aggregates, not the browser: a 24-hour chart gets 120 points per metric, not 8,640.
+- Scenarios follow the dependency graph: the root cause gets hit hardest, its dependents show
+  symptoms. That's the realistic "one failure, many alerts" problem the incident module solves next.
+- Fixed UUIDs for seeded resources: docs, tests and demos can refer to `orders-db` reliably.
+- Scenario state in memory (`AtomicReference`), not the database: it's demo state and there's one
+  instance. With several instances it would move to Postgres or Redis.
+- Card status (snapshot) is not the same as an alert (condition held for N minutes). One noisy
+  sample changes a colour; it shouldn't page anyone. That's M4.
+- TanStack Query for polling and caching instead of hand-written `useEffect` loops: refetch
+  interval, shared cache between dashboard and detail page, loading/error states for free.
+- Lazy-loaded the chart page: the main bundle went from about 680 kB to 309 kB.
+
+**What broke / what confused me:**
+- Mockito's strict stubs failed a test with `UnnecessaryStubbingException`: when recent data
+  exists, the backfill never loads resources, so my stub was unused. The fix was to stub only
+  in the tests that need it. The error actually confirmed the code skips work correctly.
+- The first `docker compose up --build` didn't recreate the containers, so I tested old code and
+  got a 404 on the new endpoint. Always check the container "Up" time after a rebuild.
+- jsdom has no `ResizeObserver`, which Recharts' `ResponsiveContainer` needs; added a stub in the
+  test setup.
+- Random data in tests is a recipe for flaky tests. Fixed: a seeded `Random(42)`, plus a
+  property-style test that runs 500 ticks and asserts every resource stays healthy.
+
+**What I learned:**
+- `DISTINCT ON (a, b) ... ORDER BY a, b, time DESC` is the Postgres way to get the latest row per group.
+- `date_bin(interval, ts, origin)` buckets timestamps to any interval (Postgres 14+).
+- Index design follows queries: `(resource_id, metric, recorded_at DESC)` serves both the latest
+  value and range reads; a separate `recorded_at` index serves retention deletes.
+
+**Interview questions I can now answer:**
+- Q: Why not JPA for the metrics table?
+  A: It's append-only and write-heavy. With an identity key Hibernate disables JDBC batching
+  because it needs each generated id back, so 35 inserts become 35 round trips. `batchUpdate`
+  sends them together. The reads are aggregations, which are clearer in SQL.
+- Q: How would this scale to 10,000 resources?
+  A: Partition `metric_samples` by time (or use TimescaleDB with compression), pre-aggregate
+  1-minute rollups, keep raw data for a shorter window, and possibly move metrics to a TSDB like
+  Prometheus. Only `MetricStore` would change because nothing else touches the table.
+- Q: How do you test code that uses randomness?
+  A: Inject the `Random` and seed it in tests, then test properties ("always healthy without a
+  scenario", "percentages stay in 0–100") over many iterations instead of exact values.
+
 ## 2026-11-15 — M2: Authentication and roles
 
 **Built:** `users` table (Flyway V2), BCrypt passwords, JWT login (`/api/v1/auth/login`),

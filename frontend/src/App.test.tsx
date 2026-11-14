@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -6,12 +7,15 @@ import App from './App'
 import { AuthProvider, SESSION_KEY } from './auth/AuthContext'
 
 function renderApp(path = '/') {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
-    </AuthProvider>,
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>,
   )
 }
 
@@ -44,7 +48,8 @@ describe('App', () => {
 
     renderApp('/')
 
-    expect(screen.getByRole('heading', { name: 'Welcome, Rahul SRE' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Resource health' })).toBeInTheDocument()
+    expect(screen.getByText('Signed in as Rahul SRE. Updates every 10 seconds.')).toBeInTheDocument()
     expect(screen.getByText('SRE')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Checking API…')
   })
