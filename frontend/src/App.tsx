@@ -8,11 +8,12 @@ import DashboardPage from './pages/DashboardPage'
 import IncidentDetailPage from './pages/IncidentDetailPage'
 import IncidentsPage from './pages/IncidentsPage'
 import LoginPage from './pages/LoginPage'
-import RunbookPage from './pages/RunbookPage'
 import RunbooksPage from './pages/RunbooksPage'
 
 // Recharts is large; load it only when someone opens a resource's charts.
 const ResourceDetailPage = lazy(() => import('./pages/ResourceDetailPage'))
+// react-markdown is only needed when reading a runbook.
+const RunbookPage = lazy(() => import('./pages/RunbookPage'))
 
 export default function App() {
   return (
@@ -26,7 +27,14 @@ export default function App() {
           <Route path="incidents" element={<IncidentsPage />} />
           <Route path="incidents/:id" element={<IncidentDetailPage />} />
           <Route path="runbooks" element={<RunbooksPage />} />
-          <Route path="runbooks/:slug" element={<RunbookPage />} />
+          <Route
+            path="runbooks/:slug"
+            element={
+              <Suspense fallback={<p className="text-slate-500">Loading…</p>}>
+                <RunbookPage />
+              </Suspense>
+            }
+          />
           <Route
             path="resources/:id"
             element={
