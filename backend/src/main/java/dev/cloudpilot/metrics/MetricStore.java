@@ -87,6 +87,37 @@ public class MetricStore {
         return result;
     }
 
+    /**
+     * Min, max, count, first/last time and latest value of one metric per resource in
+     * [from, to). One query for all resources, so evaluating a rule is one round trip.
+     */
+    public Map<UUID, WindowStats> windowStats(MetricType metric, Instant from, Instant to) {
+        Map<UUID, WindowStats> result = new HashMap<>();
+        jdbc.query("""
+                        select resource_id,
+                               min(value) as min_value,
+                               max(value) as max_value,
+                               count(*) as sample_count,
+                               min(recorded_at) as earliest,
+                               max(recorded_at) as latest,
+                               (array_agg(value order by recorded_at desc))[1] as latest_value
+                        from metric_samples
+                        where metric = ? and recorded_at >= ? and recorded_at < ?
+                        group by resource_id
+                        """,
+                rs -> {
+                    result.put(rs.getObject("resource_id", UUID.class), new WindowStats(
+                            rs.getDouble("min_value"),
+                            rs.getDouble("max_value"),
+                            rs.getLong("sample_count"),
+                            rs.getTimestamp("earliest").toInstant(),
+                            rs.getTimestamp("latest").toInstant(),
+                            rs.getDouble("latest_value")));
+                },
+                metric.name(), Timestamp.from(from), Timestamp.from(to));
+        return result;
+    }
+
     public boolean hasSamplesSince(Instant since) {
         return Boolean.TRUE.equals(jdbc.queryForObject(
                 "select exists (select 1 from metric_samples where recorded_at >= ?)",

@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M3 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M4 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -82,6 +82,21 @@ Resource status on the cards comes from the latest values: **Down** when availab
 below 90%, **Degraded** when error rate ≥ 5%, p95 latency ≥ 1 s, CPU or memory ≥ 90%, or
 availability below 99%.
 
+## Alerts
+
+Alert rules look like *"API error rate above 5% for 5 minutes"*. Every 30 seconds the alert
+engine checks each enabled rule against every resource in its scope:
+
+- **Fires** only if *every* sample in the window breaches the threshold and the samples cover the
+  whole window. A short spike, or two minutes of bad data, doesn't fire a 5-minute rule.
+- **Resolves** only after a full minute with every sample back to normal (no flapping).
+- **Never duplicates:** one firing alert per rule and resource, enforced by a partial unique index.
+- **No data never resolves:** a resource that stops reporting hasn't recovered.
+
+Ten default rules ship with the app (API errors, availability, latency, DB CPU and errors, queue
+age, pod memory/CPU/errors, frontend errors). Admins can create, edit and disable rules on the
+**Alert rules** page. Details: [ADR-0005](docs/adr/0005-alert-evaluation-semantics.md).
+
 ## API
 
 | Method | Path | Access | Description |
@@ -97,6 +112,11 @@ availability below 99%.
 | GET | `/api/v1/simulator` | signed in | Scenario catalogue and the running scenario |
 | POST | `/api/v1/simulator/scenarios/{type}/start` | Admin | Start a failure scenario |
 | POST | `/api/v1/simulator/stop` | Admin | Stop the running scenario |
+| GET | `/api/v1/alerts?status=FIRING` | signed in | Alerts, newest first (optional status filter) |
+| GET | `/api/v1/alerts/summary` | signed in | Count of firing alerts by severity |
+| GET | `/api/v1/alert-rules` | signed in | All alert rules |
+| POST | `/api/v1/alert-rules` | Admin | Create a rule (409 on duplicate name) |
+| PUT | `/api/v1/alert-rules/{id}` | Admin | Update or enable/disable a rule |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 

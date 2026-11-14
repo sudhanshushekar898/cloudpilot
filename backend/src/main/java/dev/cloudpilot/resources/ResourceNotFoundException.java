@@ -2,7 +2,9 @@ package dev.cloudpilot.resources;
 
 import java.util.UUID;
 
-public class ResourceNotFoundException extends RuntimeException {
+import dev.cloudpilot.common.NotFoundException;
+
+public class ResourceNotFoundException extends NotFoundException {
 
     public ResourceNotFoundException(UUID id) {
         super("No resource with id " + id);

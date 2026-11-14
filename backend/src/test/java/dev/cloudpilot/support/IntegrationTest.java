@@ -26,7 +26,9 @@ import org.testcontainers.utility.DockerImageName;
         properties = {
                 // Tests create exactly the data they need; demo data would only get in the way.
                 "cloudpilot.demo.seed-users=false",
-                "cloudpilot.simulator.enabled=false"
+                "cloudpilot.simulator.enabled=false",
+                // Tests call the alert engine directly with a chosen time.
+                "cloudpilot.alerts.engine-enabled=false"
         })
 public abstract class IntegrationTest {
 

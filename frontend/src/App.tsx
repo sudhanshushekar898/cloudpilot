@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
 import AppLayout from './components/AppLayout'
+import AlertRulesPage from './pages/AlertRulesPage'
+import AlertsPage from './pages/AlertsPage'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 
@@ -15,6 +17,8 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="alerts" element={<AlertsPage />} />
+          <Route path="alerts/rules" element={<AlertRulesPage />} />
           <Route
             path="resources/:id"
             element={
