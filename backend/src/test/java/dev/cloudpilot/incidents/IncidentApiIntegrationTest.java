@@ -196,6 +196,18 @@ class IncidentApiIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void timelineIncludesDeploymentsOfDirectDependenciesButNotUnrelatedResources() {
+        UUID paymentsQueue = UUID.fromString("00000000-0000-0000-0000-000000000005");   // checkout-api calls it
+        UUID inventoryPod = UUID.fromString("00000000-0000-0000-0000-000000000007");    // unrelated
+        eventStore.saveDeployment(new Deployment(UUID.randomUUID(), paymentsQueue, "q-2", "Raise visibility timeout",
+                "ci-pipeline", t0.minusSeconds(60)));
+        eventStore.saveDeployment(new Deployment(UUID.randomUUID(), inventoryPod, "i-9", "Unrelated",
+                "ci-pipeline", t0.minusSeconds(60)));
+
+        assertThat(timeline("?type=DEPLOYMENT")).extracting(e -> e.get("resourceName")).containsExactly("payments-queue");
+    }
+
+    @Test
     void timelineCanBeFilteredByTypeAndResource() {
         eventStore.saveLogs(List.of(
                 new LogEvent(ORDERS_DB, LogEvent.Level.ERROR, "db log", t0.plusSeconds(30)),
