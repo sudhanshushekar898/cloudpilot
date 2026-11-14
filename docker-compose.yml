@@ -23,6 +23,10 @@ services:
       DB_URL: jdbc:postgresql://db:5432/cloudpilot
       DB_USERNAME: ${DB_USERNAME:-cloudpilot}
       DB_PASSWORD: ${DB_PASSWORD:-cloudpilot}
+      # Dev-only default; set JWT_SECRET in .env for anything shared.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
+      DEMO_SEED_USERS: ${DEMO_SEED_USERS:-true}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-CloudPilot#2026}
     ports:
       - "8080:8080"
     depends_on:

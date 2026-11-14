@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import dev.cloudpilot.auth.JwtConfig;
+import dev.cloudpilot.auth.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -18,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PingController.class)
-@Import(PingControllerTest.FixedClockConfig.class)
+@Import({PingControllerTest.FixedClockConfig.class, SecurityConfig.class, JwtConfig.class})
 class PingControllerTest {
 
     private static final Instant NOW = Instant.parse("2026-11-14T10:00:00Z");
