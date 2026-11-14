@@ -24,6 +24,60 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M6: Runbook knowledge base and retrieval
+
+**Built:** runbooks and searchable chunks (Flyway V9), a Markdown chunker that keeps heading paths,
+an injection-safe search query builder, full-text search with ranking and highlighted snippets,
+five seeded runbooks, upload/delete for admins, runbook suggestions for incidents, and a retrieval
+evaluation test. Frontend: runbooks list with search, runbook page (rendered Markdown), admin
+upload form, and a "Suggested runbooks" panel on every incident.
+
+**Decisions and why:**
+- Full-text search before embeddings (ADR-0007). Our queries are exact error strings
+  (`too many clients already`, `OOMKilled`), which keyword search is best at. It needs no API key,
+  costs nothing and is deterministic, so I can test retrieval quality. I changed the original
+  plan (pgvector embeddings) after looking at what the queries actually are.
+- Chunk by heading and keep the path. "Verify" alone means nothing; "Orders DB connection
+  exhaustion > Verify" can be cited.
+- Heading words weigh more than body words (`setweight` A vs B).
+- The `tsvector` is a generated column: PostgreSQL keeps it in sync, Java never writes it.
+- At most two sections per runbook in results, so one long runbook can't crowd out the rest.
+- Queries are built from plain words only. Log lines are untrusted text; they must not be able to
+  inject `to_tsquery` operators.
+- Snippets come back with `[[match]]` markers and are rendered as text. Runbooks are user content,
+  so no HTML from them is ever rendered. `react-markdown` also ignores raw HTML by default.
+
+**What broke / what confused me:**
+- One frontend test failed about one run in three, only in the full suite. Cause: the default
+  1-second timeout for `findBy`/`waitFor` was too tight when many test files run in parallel on a
+  cold start, and some tests read the mocked request before the mutation had sent it. Fixed both:
+  helpers now wait for the request, and the async timeout is 3 s.
+- Seeded runbook slugs come from the title, not the file name, so my test expected the wrong slugs.
+- `"for"` used up a slot in the capped query; added a small stop-word list in the builder.
+- `ts_headline` strips `<service>` from snippets because it looks like an HTML tag. Known limit,
+  written in the ADR.
+- react-markdown pushed the main bundle to 459 kB; lazy-loading the runbook page brought it back to 340 kB.
+
+**What I learned:**
+- RAG is two separate problems: retrieval (finding the right text) and generation. Retrieval can
+  be built and measured on its own, before any LLM is involved.
+- PostgreSQL full-text search: `to_tsvector`, `to_tsquery`, `@@`, GIN indexes, `ts_rank_cd`, `ts_headline`.
+- A flaky test is a bug in the test. Re-running until green hides it; find the race.
+
+**Interview questions I can now answer:**
+- Q: Why didn't you use a vector database for RAG?
+  A: I looked at the queries first. They're exact error strings from logs and alerts, where keyword
+  search beats embeddings, and it avoids an external API during an incident. I wrote an evaluation
+  test: for each failure scenario the right runbook must rank first. If that set shows misses on
+  paraphrased questions, I'd add embeddings in pgvector and merge rankings with reciprocal rank fusion.
+- Q: How do you know your retrieval is any good?
+  A: A test builds the query from each scenario's evidence (resources, metrics, log lines, never
+  the title) and asserts the top hit. It runs in CI, so editing a runbook or the ranking can't
+  silently make retrieval worse.
+- Q: How did you handle prompt/query injection from logs?
+  A: Log text is data. For search, only alphanumeric words reach the query, so operators can't be
+  injected. For display, matches are marked with plain delimiters and rendered as text.
+
 ## 2026-11-15 — M5: Incidents, grouping and timeline
 
 **Built:** log events and deployments (Flyway V7) written by the simulator during scenarios;

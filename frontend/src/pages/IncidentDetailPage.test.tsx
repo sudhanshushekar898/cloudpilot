@@ -56,8 +56,14 @@ function renderPage(role: 'ADMIN' | 'SRE' | 'DEVELOPER', status: IncidentDetail[
   return fetchSpy
 }
 
-function postedTo(spy: { mock: { calls: unknown[][] } }, path: string) {
-  return spy.mock.calls.find((args) => args[0] === path && (args[1] as RequestInit | undefined)?.method === 'POST')
+/** Waits for the POST to `path` (mutations send it asynchronously) and returns its call args. */
+async function postedTo(spy: { mock: { calls: unknown[][] } }, path: string) {
+  let call: unknown[] | undefined
+  await vi.waitFor(() => {
+    call = spy.mock.calls.find((args) => args[0] === path && (args[1] as RequestInit | undefined)?.method === 'POST')
+    expect(call).toBeDefined()
+  })
+  return call!
 }
 
 describe('IncidentDetailPage', () => {
@@ -75,7 +81,7 @@ describe('IncidentDetailPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Acknowledge' }))
 
-    expect(postedTo(spy, '/api/v1/incidents/i1/acknowledge')).toBeDefined()
+    await postedTo(spy, '/api/v1/incidents/i1/acknowledge')
   })
 
   it('offers the next step only', async () => {
@@ -93,7 +99,7 @@ describe('IncidentDetailPage', () => {
     await userEvent.type(screen.getByLabelText('What fixed it?'), 'Raised max_connections to 300')
     await userEvent.click(resolve)
 
-    const call = postedTo(spy, '/api/v1/incidents/i1/resolve')!
+    const call = await postedTo(spy, '/api/v1/incidents/i1/resolve')
     expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ resolution: 'Raised max_connections to 300' })
   })
 
@@ -104,7 +110,7 @@ describe('IncidentDetailPage', () => {
     await screen.findByRole('option', { name: 'Ananya Admin' })
     await userEvent.selectOptions(screen.getByLabelText('Owner'), 'u2')
 
-    const call = postedTo(spy, '/api/v1/incidents/i1/assign')!
+    const call = await postedTo(spy, '/api/v1/incidents/i1/assign')
     expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ userId: 'u2' })
   })
 
@@ -118,7 +124,7 @@ describe('IncidentDetailPage', () => {
     await userEvent.type(screen.getByLabelText('Add a comment'), 'Seeing this in our service too')
     await userEvent.click(screen.getByRole('button', { name: 'Comment' }))
 
-    const call = postedTo(spy, '/api/v1/incidents/i1/comments')!
+    const call = await postedTo(spy, '/api/v1/incidents/i1/comments')
     expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ text: 'Seeing this in our service too' })
   })
 

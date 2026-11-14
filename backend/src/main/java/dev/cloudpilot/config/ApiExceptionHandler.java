@@ -33,6 +33,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
+    /** Domain rules that reject input (e.g. a title with no letters) are the client's mistake: 400. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail badRequest(IllegalArgumentException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Bad request", ex.getMessage());
+    }
+
     /** Someone else changed the same record first (JPA @Version); the client should reload. */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ProblemDetail concurrentUpdate(ObjectOptimisticLockingFailureException ex) {

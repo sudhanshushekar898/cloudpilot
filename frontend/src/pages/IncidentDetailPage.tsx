@@ -6,6 +6,7 @@ import IncidentActions from '../components/IncidentActions'
 import IncidentStatusBadge, { STATUS_LABELS } from '../components/IncidentStatusBadge'
 import IncidentTimeline from '../components/IncidentTimeline'
 import SeverityBadge from '../components/SeverityBadge'
+import SuggestedRunbooks from '../components/SuggestedRunbooks'
 import { formatDuration, timeAgo } from '../lib/time'
 
 const STEPS: IncidentDetail['status'][] = ['OPEN', 'ACKNOWLEDGED', 'INVESTIGATING', 'RESOLVED']
@@ -104,6 +105,8 @@ export default function IncidentDetailPage() {
           </ul>
         </section>
       </div>
+
+      <SuggestedRunbooks incidentId={incident.id} />
 
       <IncidentTimeline incidentId={incident.id} resources={incident.resources} />
     </section>
