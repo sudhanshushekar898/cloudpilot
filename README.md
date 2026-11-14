@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M1 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M2 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -41,6 +41,42 @@ cd frontend && npm install && npm run dev
 ```
 
 The Vite dev server runs on http://localhost:5173 and proxies `/api` to the backend.
+
+### Demo accounts
+
+Created automatically on startup (disable with `DEMO_SEED_USERS=false`):
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@cloudpilot.dev | CloudPilot#2026 |
+| SRE | sre@cloudpilot.dev | CloudPilot#2026 |
+| Developer | dev@cloudpilot.dev | CloudPilot#2026 |
+
+The login page has a button for each one.
+
+## API
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | `/api/v1/ping` | public | Liveness check, no database |
+| GET | `/actuator/health` | public | Health including database |
+| POST | `/api/v1/auth/login` | public | Email + password → JWT (1 hour) |
+| GET | `/api/v1/auth/me` | signed in | Current user from the token |
+| GET | `/api/v1/users` | Admin | List users |
+
+Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
+
+```json
+{ "title": "Authentication failed", "status": 401, "detail": "Invalid email or password" }
+```
+
+### Security design
+
+- Passwords hashed with BCrypt; tokens signed with HS256 via Spring Security's JWT support.
+- Same error and similar timing for unknown email vs wrong password (no user enumeration).
+- Stateless: no server sessions, token sent in the `Authorization` header (no CSRF surface).
+- The `prod` profile refuses to start with the development JWT secret or demo password.
+- Details and trade-offs: [ADR-0003](docs/adr/0003-stateless-jwt-auth.md).
 
 ### Run the tests
 
