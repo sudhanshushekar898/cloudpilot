@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import dev.cloudpilot.metrics.MetricStore;
 import dev.cloudpilot.metrics.MetricType;
@@ -55,6 +56,13 @@ public class ResourceService {
         long bucketSeconds = bucketSecondsFor(minutes);
         return new MetricHistory(id, minutes, bucketSeconds,
                 metrics.history(id, from, to, Duration.ofSeconds(bucketSeconds)));
+    }
+
+    /** Every resource with its dependencies, keyed by id. Small and read often, so no paging. */
+    public Map<UUID, ResourceRef> topology() {
+        return resources.findAll().stream().collect(Collectors.toMap(
+                CloudResource::getId,
+                r -> new ResourceRef(r.getId(), r.getName(), r.getType(), r.getDependsOn())));
     }
 
     /** 15 min -> 10 s buckets, 1 h -> 30 s, 24 h -> 12 min. Never finer than the sample rate. */
