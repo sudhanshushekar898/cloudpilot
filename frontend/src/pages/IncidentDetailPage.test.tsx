@@ -100,7 +100,9 @@ describe('IncidentDetailPage', () => {
   it('lets an SRE assign the incident', async () => {
     const spy = renderPage('SRE')
 
-    await userEvent.selectOptions(await screen.findByLabelText('Owner'), 'u2')
+    // The list of people loads separately; wait until it's there.
+    await screen.findByRole('option', { name: 'Ananya Admin' })
+    await userEvent.selectOptions(screen.getByLabelText('Owner'), 'u2')
 
     const call = postedTo(spy, '/api/v1/incidents/i1/assign')!
     expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ userId: 'u2' })
