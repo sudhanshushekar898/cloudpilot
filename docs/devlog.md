@@ -24,6 +24,54 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M4: Alert rules engine
+
+**Built:** `alert_rules` and `alerts` tables (Flyway V5) with ten default rules (V6), a pure
+`RuleEvaluator`, a `windowStats` SQL query, an `AlertEngine` that runs every 30 s, `AlertFired` /
+`AlertResolved` events, rule CRUD for admins, alert list and summary endpoints. Frontend: alerts
+page (Firing / All tabs, durations), alert rules page with an admin form, firing-count badge in the nav.
+
+**Decisions and why:**
+- "For 5 minutes" means every sample in the window breaches *and* the data covers the window
+  (ADR-0005). Averages would let a short spike fire; the coverage check stops 2 minutes of data
+  from counting as 5.
+- Resolve needs a full minute of normal values, so a struggling service doesn't flap.
+- Missing data never resolves an alert. Silence is not recovery.
+- Duplicate protection twice: the engine checks for a firing alert, and a partial unique index
+  (`WHERE status = 'FIRING'`) makes duplicates impossible even if two runs overlap.
+- The engine takes `now` as a parameter instead of reading the clock, so integration tests can
+  insert samples at exact times and run the engine "five minutes later" without waiting.
+- Alerts publish events instead of calling the incidents module. Alerts don't depend on incidents;
+  M5 just adds a listener. That's how the modular monolith keeps its boundaries.
+- Severity is copied onto the alert when it fires, so editing a rule later doesn't rewrite history.
+- Shared `NotFoundException` / `ConflictException` → one place maps them to 404 / 409.
+
+**What broke / what confused me:**
+- The whole integration suite failed with `ExceptionInInitializerError` in the test base class.
+  Docker Desktop had stopped, so Testcontainers couldn't start Postgres. A static initializer
+  failure shows up as a confusing error in *every* test class.
+- Vitest passed, but `npm run build` failed: Vitest strips types without checking them, and
+  `tsc` found an implicit `any` in a test helper. CI runs `typecheck` separately for this reason.
+- Deciding the "observed value" for the message: the window's min looks better for the rule
+  but the latest value is what an engineer sees on the chart, so I used the latest.
+
+**What I learned:**
+- PostgreSQL partial indexes: a unique constraint that only applies to rows matching a `WHERE`.
+- `(array_agg(value order by recorded_at desc))[1]` gets the latest value inside a `GROUP BY`.
+- `@RecordApplicationEvents` lets a Spring test assert which events were published.
+
+**Interview questions I can now answer:**
+- Q: How do you avoid alert fatigue?
+  A: Require the condition to hold for the full duration (not one sample, not an average), resolve
+  only after sustained recovery, never duplicate an open alert, and (next milestone) group related
+  alerts into one incident so one failure doesn't page five times.
+- Q: What happens if two instances run the alert engine at once?
+  A: The partial unique index rejects a second firing alert for the same rule and resource, so
+  data stays correct. To avoid wasted work I'd add ShedLock so only one instance runs the job.
+- Q: Why is the evaluator a separate pure class?
+  A: All the tricky edge cases (coverage, touching the threshold, flapping, no data) become fast
+  unit tests with no database or clock. The engine only does I/O around it.
+
 ## 2026-11-15 — M3: Resources, metrics and the failure simulator
 
 **Built:** resources + dependency graph + metric samples (Flyway V3), a seeded 7-resource checkout
