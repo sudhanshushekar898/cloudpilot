@@ -131,7 +131,13 @@ public class IncidentQueryService {
         events.logs(involved, incident.getOpenedAt().minus(LOGS_BEFORE), end, MAX_LOG_LINES).forEach(log ->
                 items.add(new IncidentViews.TimelineItem(ItemType.LOG, log.loggedAt(), log.message(), null,
                         log.resourceId(), name(topology, log.resourceId()), log.level().name())));
-        events.deployments(involved, incident.getOpenedAt().minus(DEPLOYMENTS_BEFORE), end).forEach(d ->
+        // A release to something an affected service calls is a prime suspect too.
+        Set<UUID> deploymentScope = new LinkedHashSet<>(involved);
+        if (resourceId == null) {
+            involved.forEach(r -> deploymentScope.addAll(
+                    topology.containsKey(r) ? topology.get(r).dependsOn() : Set.of()));
+        }
+        events.deployments(deploymentScope, incident.getOpenedAt().minus(DEPLOYMENTS_BEFORE), end).forEach(d ->
                 items.add(new IncidentViews.TimelineItem(ItemType.DEPLOYMENT, d.deployedAt(),
                         "Deployed " + d.version() + ": " + d.description(), d.deployedBy(), d.resourceId(),
                         name(topology, d.resourceId()), null)));
