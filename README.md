@@ -1,5 +1,7 @@
 # CloudPilot
 
+[![CI](https://github.com/sudhanshushekar898/cloudpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sudhanshushekar898/cloudpilot/actions/workflows/ci.yml)
+
 **Cloud monitoring and incident management with AI-assisted root-cause analysis.**
 
 CloudPilot watches the health of cloud resources (EC2, RDS, APIs, queues, Kubernetes pods),
@@ -10,7 +12,64 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development. See the [roadmap](#roadmap) below.
+> Status: early development (M1 of 11 done). See the [roadmap](#roadmap) below.
+
+## Getting started
+
+### Run everything with Docker
+
+Requires Docker Desktop.
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Web app | http://localhost:3000 |
+| API ping | http://localhost:8080/api/v1/ping |
+| API health | http://localhost:8080/actuator/health |
+
+### Run for development
+
+Requires Java 21+, Node 22+ and Docker (for PostgreSQL).
+
+```bash
+docker compose up -d db
+cd backend && ./mvnw spring-boot:run
+cd frontend && npm install && npm run dev
+```
+
+The Vite dev server runs on http://localhost:5173 and proxies `/api` to the backend.
+
+### Run the tests
+
+```bash
+cd backend && ./mvnw verify      # unit + integration tests (Testcontainers) + coverage gate
+cd frontend && npm test          # component tests (Vitest + Testing Library)
+```
+
+## Project structure
+
+```
+cloudpilot/
+├── backend/            Spring Boot API (modular monolith, package dev.cloudpilot)
+├── frontend/           React + TypeScript + Vite web app
+├── docs/               Design doc, ADRs, user stories, dev log
+├── docker-compose.yml  Local stack: Postgres (pgvector), API, web app
+└── .github/workflows/  CI pipeline
+```
+
+## Testing strategy
+
+| Level | Tools | What it covers |
+|---|---|---|
+| Unit / slice | JUnit 5, MockMvc, AssertJ | Controllers and services in isolation, with a fixed clock |
+| Integration | Testcontainers (real PostgreSQL + pgvector) | Flyway migrations, health checks, real HTTP calls |
+| Frontend | Vitest, React Testing Library | Components, with `fetch` mocked |
+| Coverage | JaCoCo | Build fails below 80% line coverage |
+
+CI runs all of these on every pull request, then builds both Docker images.
 
 ## Features (planned)
 
