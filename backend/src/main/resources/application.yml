@@ -12,6 +12,18 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  mvc:
+    problemdetails:
+      enabled: true
+
+cloudpilot:
+  security:
+    jwt:
+      # Override with the JWT_SECRET environment variable everywhere except local dev.
+      # The prod profile refuses to start with this default value.
+      secret: ${JWT_SECRET:dev-only-insecure-jwt-secret-change-me-0123456789}
+      ttl: 1h
+      issuer: cloudpilot
 
 server:
   port: 8080
