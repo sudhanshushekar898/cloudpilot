@@ -13,9 +13,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserAccountRepository users;
+    private final UserDirectory directory;
 
-    public UserController(UserAccountRepository users) {
+    public UserController(UserAccountRepository users, UserDirectory directory) {
         this.users = users;
+        this.directory = directory;
+    }
+
+    /** People an incident can be assigned to (for the assign dropdown). */
+    @GetMapping("/assignable")
+    @PreAuthorize("hasAnyRole('SRE', 'ADMIN')")
+    public List<UserDirectory.Person> assignable() {
+        return directory.assignable();
     }
 
     @GetMapping

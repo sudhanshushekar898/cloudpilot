@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
 import { getAlertSummary } from '../api/alerts'
+import { getIncidentSummary } from '../api/incidents'
 import { useAuth } from '../auth/AuthContext'
 import type { Role } from '../auth/types'
 import ApiStatus from './ApiStatus'
@@ -8,7 +9,7 @@ import ApiStatus from './ApiStatus'
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', ready: true },
   { to: '/alerts', label: 'Alerts', ready: true },
-  { to: '/incidents', label: 'Incidents', ready: false },
+  { to: '/incidents', label: 'Incidents', ready: true },
   { to: '/runbooks', label: 'Runbooks', ready: false },
   { to: '/reports', label: 'Reports', ready: false },
 ]
@@ -26,7 +27,15 @@ export default function AppLayout() {
     queryFn: getAlertSummary,
     refetchInterval: 15_000,
   })
-  const firing = alertSummary?.firing ?? 0
+  const { data: incidentSummary } = useQuery({
+    queryKey: ['incidents', 'summary'],
+    queryFn: getIncidentSummary,
+    refetchInterval: 15_000,
+  })
+  const badges: Record<string, { count: number; label: string }> = {
+    '/alerts': { count: alertSummary?.firing ?? 0, label: 'alerts firing' },
+    '/incidents': { count: incidentSummary?.active ?? 0, label: 'active incidents' },
+  }
 
   return (
     <div className="min-h-screen">
@@ -68,12 +77,12 @@ export default function AppLayout() {
                 }
               >
                 {item.label}
-                {item.to === '/alerts' && firing > 0 && (
+                {(badges[item.to]?.count ?? 0) > 0 && (
                   <span
-                    aria-label={`${firing} alerts firing`}
+                    aria-label={`${badges[item.to]!.count} ${badges[item.to]!.label}`}
                     className="rounded-full bg-rose-600 px-1.5 text-xs font-semibold leading-5 text-white"
                   >
-                    {firing}
+                    {badges[item.to]!.count}
                   </span>
                 )}
               </NavLink>

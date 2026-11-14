@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import dev.cloudpilot.metrics.EventStore;
 import dev.cloudpilot.metrics.MetricSample;
 import dev.cloudpilot.metrics.MetricStore;
 import dev.cloudpilot.resources.CloudResourceRepository;
@@ -34,16 +35,21 @@ public class SimulatorJob {
 
     private final CloudResourceRepository resources;
     private final MetricStore store;
+    private final EventStore events;
     private final MetricGenerator generator;
+    private final LogGenerator logGenerator;
     private final ScenarioManager scenarios;
     private final SimulatorProperties properties;
     private final Clock clock;
 
-    public SimulatorJob(CloudResourceRepository resources, MetricStore store, MetricGenerator generator,
-                        ScenarioManager scenarios, SimulatorProperties properties, Clock clock) {
+    public SimulatorJob(CloudResourceRepository resources, MetricStore store, EventStore events,
+                        MetricGenerator generator, LogGenerator logGenerator, ScenarioManager scenarios,
+                        SimulatorProperties properties, Clock clock) {
         this.resources = resources;
         this.store = store;
+        this.events = events;
         this.generator = generator;
+        this.logGenerator = logGenerator;
         this.scenarios = scenarios;
         this.properties = properties;
         this.clock = clock;
@@ -51,7 +57,11 @@ public class SimulatorJob {
 
     @Scheduled(fixedRateString = "${cloudpilot.simulator.interval:10s}", initialDelayString = "5s")
     public void tick() {
-        store.saveAll(generator.generate(loadResources(), Instant.now(clock), scenarios.active()));
+        Instant now = Instant.now(clock);
+        List<SimulatedResource> topology = loadResources();
+        Optional<ActiveScenario> scenario = scenarios.active();
+        store.saveAll(generator.generate(topology, now, scenario));
+        events.saveLogs(logGenerator.generate(topology, now, scenario));
     }
 
     @EventListener(ApplicationReadyEvent.class)

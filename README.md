@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M4 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M5 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -97,6 +97,23 @@ Ten default rules ship with the app (API errors, availability, latency, DB CPU a
 age, pod memory/CPU/errors, frontend errors). Admins can create, edit and disable rules on the
 **Alert rules** page. Details: [ADR-0005](docs/adr/0005-alert-evaluation-semantics.md).
 
+## Incidents
+
+Alerts are grouped into incidents so one failure pages once, not five times:
+
+- A new alert joins an active incident if, within 10 minutes, that incident already has alerts on
+  the **same resource**, a resource it **depends on**, or a resource that **depends on it**. A
+  ripple like `orders-db → checkout-api → web-frontend` becomes one incident.
+- Every grouped alert shows **why** it was grouped, and the incident marks the **probable
+  origin**: the affected resource that depends on nothing else in the incident.
+- Lifecycle: **Open → Acknowledged → Investigating → Resolved**, one step at a time (409 otherwise).
+  Acknowledging takes ownership; resolving needs a written resolution. Only SREs and admins can
+  change state; anyone can comment.
+- The **timeline** merges alerts, status changes, comments, error logs of the affected resources
+  and recent deployments (including services they call), with filters by type and resource.
+
+Details: [ADR-0006](docs/adr/0006-incident-grouping-and-lifecycle.md).
+
 ## API
 
 | Method | Path | Access | Description |
@@ -117,6 +134,16 @@ age, pod memory/CPU/errors, frontend errors). Admins can create, edit and disabl
 | GET | `/api/v1/alert-rules` | signed in | All alert rules |
 | POST | `/api/v1/alert-rules` | Admin | Create a rule (409 on duplicate name) |
 | PUT | `/api/v1/alert-rules/{id}` | Admin | Update or enable/disable a rule |
+| GET | `/api/v1/incidents?scope=active` | signed in | Incidents (`active`, `resolved`, `all`) |
+| GET | `/api/v1/incidents/summary` | signed in | Number of active incidents |
+| GET | `/api/v1/incidents/{id}` | signed in | Detail: grouped alerts, reasons, probable origin |
+| GET | `/api/v1/incidents/{id}/timeline?type=LOG&resourceId=` | signed in | Merged, filterable timeline |
+| POST | `/api/v1/incidents/{id}/acknowledge` | SRE, Admin | Take ownership |
+| POST | `/api/v1/incidents/{id}/investigate` | SRE, Admin | Start investigating |
+| POST | `/api/v1/incidents/{id}/resolve` | SRE, Admin | Resolve with a resolution note |
+| POST | `/api/v1/incidents/{id}/assign` | SRE, Admin | Assign to an SRE or admin |
+| POST | `/api/v1/incidents/{id}/comments` | signed in | Add a comment |
+| GET | `/api/v1/users/assignable` | SRE, Admin | People an incident can be assigned to |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 

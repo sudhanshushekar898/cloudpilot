@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class SimulatorController {
 
     private final ScenarioManager scenarios;
+    private final ScenarioService scenarioService;
 
-    public SimulatorController(ScenarioManager scenarios) {
+    public SimulatorController(ScenarioManager scenarios, ScenarioService scenarioService) {
         this.scenarios = scenarios;
+        this.scenarioService = scenarioService;
     }
 
     @GetMapping
@@ -33,7 +35,7 @@ public class SimulatorController {
     @PostMapping("/scenarios/{type}/start")
     @PreAuthorize("hasRole('ADMIN')")
     public ActiveScenario start(@PathVariable ScenarioType type, @AuthenticationPrincipal Jwt jwt) {
-        return scenarios.start(type, jwt.getClaimAsString("email"));
+        return scenarioService.start(type, jwt.getClaimAsString("email"));
     }
 
     @PostMapping("/stop")

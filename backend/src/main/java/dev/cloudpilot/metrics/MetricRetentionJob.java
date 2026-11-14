@@ -17,19 +17,24 @@ public class MetricRetentionJob {
     private static final Logger log = LoggerFactory.getLogger(MetricRetentionJob.class);
 
     private final MetricStore store;
+    private final EventStore events;
     private final Clock clock;
     private final Duration retention;
 
-    public MetricRetentionJob(MetricStore store, Clock clock,
+    public MetricRetentionJob(MetricStore store, EventStore events, Clock clock,
                               @Value("${cloudpilot.metrics.retention:7d}") Duration retention) {
         this.store = store;
+        this.events = events;
         this.clock = clock;
         this.retention = retention;
     }
 
+    /** Deployments are kept: they are few, and old ones explain recurring failures. */
     @Scheduled(cron = "${cloudpilot.metrics.retention-cron:0 30 3 * * *}")
     public void purge() {
-        int deleted = store.deleteOlderThan(Instant.now(clock).minus(retention));
-        log.info("Metric retention removed {} samples older than {}", deleted, retention);
+        Instant cutoff = Instant.now(clock).minus(retention);
+        int samples = store.deleteOlderThan(cutoff);
+        int logs = events.deleteLogsOlderThan(cutoff);
+        log.info("Retention removed {} samples and {} log lines older than {}", samples, logs, retention);
     }
 }
