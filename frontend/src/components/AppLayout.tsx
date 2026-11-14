@@ -1,11 +1,13 @@
+import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
+import { getAlertSummary } from '../api/alerts'
 import { useAuth } from '../auth/AuthContext'
 import type { Role } from '../auth/types'
 import ApiStatus from './ApiStatus'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', ready: true },
-  { to: '/alerts', label: 'Alerts', ready: false },
+  { to: '/alerts', label: 'Alerts', ready: true },
   { to: '/incidents', label: 'Incidents', ready: false },
   { to: '/runbooks', label: 'Runbooks', ready: false },
   { to: '/reports', label: 'Reports', ready: false },
@@ -19,6 +21,12 @@ const ROLE_STYLES: Record<Role, string> = {
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
+  const { data: alertSummary } = useQuery({
+    queryKey: ['alerts', 'summary'],
+    queryFn: getAlertSummary,
+    refetchInterval: 15_000,
+  })
+  const firing = alertSummary?.firing ?? 0
 
   return (
     <div className="min-h-screen">
@@ -52,14 +60,22 @@ export default function AppLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end
+                end={item.to === '/'}
                 className={({ isActive }) =>
-                  `whitespace-nowrap border-b-2 px-3 py-2 text-sm ${
+                  `inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${
                     isActive ? 'border-brand-500 font-medium text-brand-600' : 'border-transparent text-slate-600'
                   }`
                 }
               >
                 {item.label}
+                {item.to === '/alerts' && firing > 0 && (
+                  <span
+                    aria-label={`${firing} alerts firing`}
+                    className="rounded-full bg-rose-600 px-1.5 text-xs font-semibold leading-5 text-white"
+                  >
+                    {firing}
+                  </span>
+                )}
               </NavLink>
             ) : (
               <span
