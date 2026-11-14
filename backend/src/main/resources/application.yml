@@ -33,6 +33,13 @@ cloudpilot:
     backfill: 1h
   metrics:
     retention: 7d
+  ai:
+    # Empty = rule-based analysis only. Never commit a real key.
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: ${CLOUDPILOT_AI_MODEL:claude-opus-5-5}
+    effort: ${CLOUDPILOT_AI_EFFORT:high}
+    server-fallbacks: ${CLOUDPILOT_AI_SERVER_FALLBACKS:true}
+    timeout: 120s
 
 server:
   port: 8080
