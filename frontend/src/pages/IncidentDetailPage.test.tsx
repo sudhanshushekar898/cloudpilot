@@ -47,6 +47,7 @@ function renderPage(role: 'ADMIN' | 'SRE' | 'DEVELOPER', status: IncidentDetail[
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
     mockApi({
       '/api/v1/incidents/i1/timeline': timeline,
+      '/api/v1/incidents/i1/analysis': null,   // no analysis yet (204)
       '/api/v1/incidents/i1': incident(status),
       'POST /api/v1/incidents/i1/': incident(status),
       '/api/v1/users/assignable': [{ id: 'u2', displayName: 'Ananya Admin', email: 'a@x', role: 'ADMIN' }],

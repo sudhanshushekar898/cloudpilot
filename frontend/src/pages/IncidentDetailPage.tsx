@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { getIncident, type IncidentDetail } from '../api/incidents'
 import { useAuth } from '../auth/AuthContext'
+import AnalysisPanel from '../components/AnalysisPanel'
 import IncidentActions from '../components/IncidentActions'
 import IncidentStatusBadge, { STATUS_LABELS } from '../components/IncidentStatusBadge'
 import IncidentTimeline from '../components/IncidentTimeline'
@@ -105,6 +106,8 @@ export default function IncidentDetailPage() {
           </ul>
         </section>
       </div>
+
+      <AnalysisPanel incidentId={incident.id} />
 
       <SuggestedRunbooks incidentId={incident.id} />
 
