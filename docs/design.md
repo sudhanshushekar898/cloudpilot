@@ -60,7 +60,7 @@ service interface, never through its repositories or tables.
 
 ```mermaid
 flowchart LR
-  UI[React SPA] -->|REST + JWT| API[Spring Boot API]
+  UI[React SPA] -->|REST + JWT| API
   subgraph API[Spring Boot application]
     AUTH[auth]
     RES[resources]
