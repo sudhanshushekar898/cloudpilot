@@ -88,6 +88,23 @@ class MetricStoreIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void windowStatsSummarisesEachResourceInTheWindow() {
+        store.saveAll(List.of(
+                sample(ORDERS_DB, ERROR_RATE, 99, T0.minusSeconds(400)),     // before the window: ignored
+                sample(ORDERS_DB, ERROR_RATE, 7, T0.minusSeconds(290)),
+                sample(ORDERS_DB, ERROR_RATE, 12, T0.minusSeconds(100)),
+                sample(ORDERS_DB, ERROR_RATE, 9, T0.minusSeconds(10)),
+                sample(ORDERS_DB, CPU, 50, T0.minusSeconds(10)),             // other metric: ignored
+                sample(CHECKOUT_API, ERROR_RATE, 0.5, T0.minusSeconds(20))));
+
+        Map<UUID, WindowStats> stats = store.windowStats(ERROR_RATE, T0.minusSeconds(300), T0);
+
+        assertThat(stats.get(ORDERS_DB)).isEqualTo(new WindowStats(
+                7, 12, 3, T0.minusSeconds(290), T0.minusSeconds(10), 9));
+        assertThat(stats.get(CHECKOUT_API).count()).isEqualTo(1);
+    }
+
+    @Test
     void retentionDeletesOnlyOldSamples() {
         store.saveAll(List.of(
                 sample(ORDERS_DB, CPU, 1, T0.minus(Duration.ofDays(8))),
