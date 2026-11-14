@@ -24,6 +24,64 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M5: Incidents, grouping and timeline
+
+**Built:** log events and deployments (Flyway V7) written by the simulator during scenarios;
+incidents, incident alerts and timeline entries (V8); a pure `AlertGrouper`; an `Incident`
+aggregate with a strict state machine and optimistic locking; event listeners that open and grow
+incidents; lifecycle, assignment and comment commands; list, detail (with probable origin) and a
+merged, filterable timeline. Frontend: incidents list, incident detail with next-step actions,
+assignment, resolution form, grouped alerts with reasons, timeline filters, comment box, nav badge.
+
+**Decisions and why:**
+- Group along the dependency graph plus a 10-minute window (ADR-0006). Time alone merges unrelated
+  failures; resource alone splits one failure into many incidents.
+- Each grouped alert stores a plain-English reason. If engineers can't see why alerts were
+  grouped, they stop trusting the grouping.
+- Alerts → incidents via events after commit, in a new transaction. Alert creation can never be
+  blocked by an incident bug. Handling is idempotent because listeners can run twice.
+- The `Incident` aggregate owns its rules (`acknowledge`, `resolve`...), so no service can skip a step.
+- Alerts recovering doesn't auto-resolve the incident: a person confirms the fix and writes what
+  fixed it, which is what the postmortem (M8) needs.
+- `@Version` optimistic locking: two SREs clicking "acknowledge" at once get one success and one 409,
+  not a silent overwrite.
+- `UserDirectory` and `ResourceService.topology()` are the public faces of auth and resources; the
+  incidents module never touches their repositories.
+- The simulator's DB scenario records an unrelated catalog-api deployment just before the failure:
+  a red herring the M7 AI analysis must not blame. Deployments of services an affected resource
+  *calls* show in the timeline for the same reason.
+
+**What broke / what confused me:**
+- Assigning from the dropdown sent an empty user id. The select is controlled, so React resets
+  its value right after the change event, and my mutation read `e.target.value` later inside a
+  closure. Fix: copy the value into a variable first. A real bug caught by a test.
+- A test couldn't find the grouping reason because "Why grouped: " and the reason were one text
+  node. Gave the reason its own element (also nicer for styling).
+- `@TransactionalEventListener` only fires inside a transaction by default. Events published
+  outside one (tests, some code paths) would be silently dropped, so I set `fallbackExecution = true`.
+- The incident number comes from a database sequence; `@Generated` tells Hibernate to read it back
+  after insert instead of expecting Java to set it.
+
+**What I learned:**
+- Aggregates: put invariants inside the entity, not in services, so they can't be bypassed.
+- Domain events keep modules decoupled; the cost is eventual consistency and a delivery gap that
+  an outbox pattern would close.
+- `@TransactionalEventListener(AFTER_COMMIT)` + `REQUIRES_NEW` is how you react to committed data in Spring.
+
+**Interview questions I can now answer:**
+- Q: How does CloudPilot reduce alert noise?
+  A: Alerts only fire when the condition holds for the full window, and related alerts are grouped
+  into one incident using the dependency graph and a time window, with the reason shown for each.
+  One DB failure that triggers five alerts becomes one incident with one owner.
+- Q: What happens if two engineers acknowledge the same incident at the same time?
+  A: The incident has a `@Version` column. Both read version 3; the first update makes it 4; the
+  second update's `WHERE version = 3` matches no row, Hibernate throws, and the API returns 409 so
+  the second person reloads.
+- Q: Why not call the incident service directly from the alert engine?
+  A: That couples alerts to incidents and puts both in one transaction, so an incident bug could
+  stop alerts. With events, alerts don't know incidents exist and are committed first. The trade-off
+  is a small delivery gap, which a transactional outbox would close.
+
 ## 2026-11-15 — M4: Alert rules engine
 
 **Built:** `alert_rules` and `alerts` tables (Flyway V5) with ten default rules (V6), a pure
