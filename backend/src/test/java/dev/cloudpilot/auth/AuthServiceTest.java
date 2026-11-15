@@ -3,6 +3,7 @@ package dev.cloudpilot.auth;
 import java.time.Instant;
 import java.util.Optional;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,7 @@ class AuthServiceTest {
 
     // Strength 4 keeps tests fast; production uses the default (10).
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
     @Mock
     private UserAccountRepository users;
@@ -37,7 +39,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(users, passwordEncoder, tokens);
+        authService = new AuthService(users, passwordEncoder, tokens, registry);
         sre = new UserAccount("sre@cloudpilot.dev", "Priya SRE", passwordEncoder.encode("correct-horse"), Role.SRE, NOW);
     }
 
@@ -72,6 +74,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login("sre@cloudpilot.dev", "wrong"))
                 .isInstanceOf(InvalidCredentialsException.class);
         verify(tokens, never()).issue(any());
+        assertThat(registry.counter("cloudpilot.auth.login.failed").count()).isEqualTo(1.0);
     }
 
     @Test
