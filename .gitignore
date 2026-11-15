@@ -21,6 +21,8 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # k6 raw output (numbers are recorded in the README)
 loadtest/results/
+deploy/.releases

@@ -24,6 +24,49 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M11: Deployment, kill switches and rollback
+
+**Built:** release workflow that pushes SHA-tagged images to GHCR after CI passes, a production
+Spring profile, a production Compose stack behind Caddy (automatic HTTPS), feature flags with an
+admin API, a deploy script with health-gated automatic rollback, a manual deploy workflow over
+SSH, and an AWS EC2 guide (ADR-0011).
+
+**Decisions and why:**
+- One EC2 VM with Docker Compose instead of ECS + RDS or Kubernetes. The load is tiny and RDS
+  alone would cost more than the whole VM. I wrote down what I would move to at real scale.
+- Images are tagged with the commit SHA and never overwritten, so a rollback is just "run the
+  previous SHA". `latest` is only a convenience, never deployed.
+- Kill switches live in the database, not in environment variables, so turning Claude off takes
+  one API call and no restart. An unknown flag name reads as off, so a typo fails safe.
+- Migrations stay additive so the previous release still works with the new schema. Without
+  that, a code rollback would not be possible.
+
+**What broke / what confused me:**
+- In the local production rehearsal, `/actuator/prometheus` answered 200. It was not the metrics:
+  nginx's SPA fallback served index.html. I added an explicit 404 in Caddy so it is clear.
+- My `.env.*` ignore rule also hid `.env.prod.example`; fixed with a negation rule.
+- The deploy script runs `git checkout`, which can replace the script while bash is still reading
+  it. Wrapping everything in a `main` function makes bash parse it fully before running.
+
+**What I learned:**
+- Caddy gets and renews certificates on its own; sslip.io gives a free host name for an IP.
+- A health check that gates the deploy turns "the site is down" into "the deploy failed and
+  rolled back".
+- Feature flags separate deploying code from turning a feature on.
+
+**Interview questions I can now answer:**
+- Q: How do you roll back a bad release?
+  A: Every release is an immutable image tagged with its commit SHA. If the new backend never
+  becomes healthy the script rolls back automatically; if it is healthy but wrong I run the
+  deploy workflow with the previous SHA or `rollback`. Migrations are additive, so the old code
+  still runs on the new schema.
+- Q: The AI provider starts returning nonsense during an outage. What do you do?
+  A: An admin switches off `claude-ai` with one API call. Analysis and postmortems fall back to
+  the rule-based and template paths straight away, with no deploy.
+- Q: Why not Kubernetes?
+  A: For one small app on one machine it adds cost and moving parts without solving a real
+  problem. The images and health checks are already what Kubernetes or ECS would need.
+
 ## 2026-11-15 — M10: Quality hardening
 
 **Built:** OpenAPI docs with Swagger UI (generated from the controllers, JWT bearer scheme, public

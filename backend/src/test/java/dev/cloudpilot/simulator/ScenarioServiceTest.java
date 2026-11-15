@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+import dev.cloudpilot.features.FeatureFlags;
 import dev.cloudpilot.metrics.Deployment;
 import dev.cloudpilot.metrics.EventStore;
 import dev.cloudpilot.resources.ResourceRef;
@@ -20,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +37,9 @@ class ScenarioServiceTest {
     @Mock
     private EventStore events;
 
+    @Mock
+    private FeatureFlags flags;
+
     private ScenarioManager manager;
     private ScenarioService service;
 
@@ -42,7 +47,8 @@ class ScenarioServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         manager = new ScenarioManager(clock);
-        service = new ScenarioService(manager, resources, events);
+        lenient().when(flags.isEnabled(FeatureFlags.FAILURE_SCENARIOS)).thenReturn(true);
+        service = new ScenarioService(manager, resources, events, flags);
     }
 
     @Test

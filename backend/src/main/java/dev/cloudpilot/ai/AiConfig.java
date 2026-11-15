@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.OutputConfig;
+import dev.cloudpilot.features.FeatureFlags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -36,12 +37,13 @@ public class AiConfig {
     }
 
     @Bean
-    public AnalysisRunner analysisRunner(ObjectProvider<ClaudeGateway> gateway) {
+    public AnalysisRunner analysisRunner(ObjectProvider<ClaudeGateway> gateway, FeatureFlags flags) {
         Optional<Analyzer> claude = Optional.ofNullable(gateway.getIfAvailable())
                 .map(g -> new ClaudeAnalyzer(g, new PromptBuilder()));
         if (claude.isEmpty()) {
             log.info("AI analysis: rule-based only (set ANTHROPIC_API_KEY to enable Claude)");
         }
-        return new AnalysisRunner(claude, new RuleBasedAnalyzer(), new AnalysisValidator());
+        return new AnalysisRunner(claude, new RuleBasedAnalyzer(), new AnalysisValidator(),
+                () -> flags.isEnabled(FeatureFlags.CLAUDE_AI));
     }
 }

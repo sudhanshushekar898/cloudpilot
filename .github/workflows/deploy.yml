@@ -1,0 +1,61 @@
+# Manual, auditable deploys: pick a released image tag (a commit SHA on main that the release
+# workflow has published) and this job deploys it to the EC2 host over SSH. Rolling back is the
+# same job with an older SHA, or "rollback" to go back one release.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Commit SHA to deploy, or 'rollback' for the previous release"
+        required: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Validate input
+        env:
+          TAG: ${{ inputs.image_tag }}
+        run: |
+          [[ "$TAG" == rollback || "$TAG" =~ ^[0-9a-f]{7,40}$ ]] || { echo "Not a commit SHA: $TAG"; exit 1; }
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          TAG: ${{ inputs.image_tag }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          if [[ "$TAG" == rollback ]]; then
+            ssh "$USER@$HOST" "cd ~/cloudpilot && deploy/deploy.sh --rollback"
+          else
+            ssh "$USER@$HOST" "cd ~/cloudpilot && git fetch --quiet origin && deploy/deploy.sh $TAG"
+          fi
+
+      - name: Smoke test
+        env:
+          DOMAIN: ${{ secrets.APP_DOMAIN }}
+        run: |
+          curl -fsS --retry 10 --retry-delay 6 --retry-all-errors -o /dev/null "https://$DOMAIN/"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/api/v1/incidents")
+          [[ "$code" == 401 ]] || { echo "Expected 401 from the API without a token, got $code"; exit 1; }
+          echo "Smoke test passed"

@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import dev.cloudpilot.ai.AnalysisService;
 import dev.cloudpilot.ai.ClaudeGateway;
+import dev.cloudpilot.features.FeatureFlags;
 import dev.cloudpilot.common.ConflictException;
 import dev.cloudpilot.common.NotFoundException;
 import dev.cloudpilot.incidents.IncidentQueryService;
@@ -35,14 +36,16 @@ public class PostmortemService {
     private final AnalysisService analyses;
     private final Optional<ClaudePostmortemWriter> claude;
     private final TemplatePostmortemWriter template = new TemplatePostmortemWriter();
+    private final FeatureFlags flags;
     private final Clock clock;
 
     public PostmortemService(PostmortemRepository postmortems, IncidentQueryService incidents, AnalysisService analyses,
-                             ObjectProvider<ClaudeGateway> gateway, Clock clock) {
+                             ObjectProvider<ClaudeGateway> gateway, FeatureFlags flags, Clock clock) {
         this.postmortems = postmortems;
         this.incidents = incidents;
         this.analyses = analyses;
         this.claude = Optional.ofNullable(gateway.getIfAvailable()).map(ClaudePostmortemWriter::new);
+        this.flags = flags;
         this.clock = clock;
     }
 
@@ -65,7 +68,7 @@ public class PostmortemService {
         PostmortemContent draft = null;
         String draftedBy = "template";
         String model = null;
-        if (claude.isPresent()) {
+        if (claude.isPresent() && flags.isEnabled(FeatureFlags.CLAUDE_AI)) {
             try {
                 draft = claude.get().write(facts);
                 draftedBy = "claude";
