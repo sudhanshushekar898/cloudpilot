@@ -4,13 +4,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Optional;
 import java.util.UUID;
 
 import dev.cloudpilot.metrics.Deployment;
 import dev.cloudpilot.metrics.EventStore;
-import dev.cloudpilot.resources.CloudResource;
-import dev.cloudpilot.resources.CloudResourceRepository;
+import dev.cloudpilot.resources.ResourceRef;
+import dev.cloudpilot.resources.ResourceService;
 import dev.cloudpilot.resources.ResourceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,7 @@ class ScenarioServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
 
     @Mock
-    private CloudResourceRepository resources;
+    private ResourceService resources;
 
     @Mock
     private EventStore events;
@@ -49,8 +48,8 @@ class ScenarioServiceTest {
     @Test
     void startingABadDeploymentRecordsTheRelease() {
         UUID checkout = UUID.randomUUID();
-        when(resources.findByName("checkout-api"))
-                .thenReturn(Optional.of(new CloudResource(checkout, "checkout-api", ResourceType.API, "ap-south-1", "api")));
+        when(resources.topology()).thenReturn(java.util.Map.of(
+                checkout, new ResourceRef(checkout, "checkout-api", ResourceType.API, java.util.Set.of())));
 
         ActiveScenario started = service.start(ScenarioType.BAD_DEPLOYMENT, "admin@cloudpilot.dev");
 
@@ -64,8 +63,9 @@ class ScenarioServiceTest {
 
     @Test
     void deploymentIsBackdatedByTheScenarioOffset() {
-        when(resources.findByName("payments-worker")).thenReturn(Optional.of(
-                new CloudResource(UUID.randomUUID(), "payments-worker", ResourceType.POD, "ap-south-1", "pod")));
+        UUID worker = UUID.randomUUID();
+        when(resources.topology()).thenReturn(java.util.Map.of(
+                worker, new ResourceRef(worker, "payments-worker", ResourceType.POD, java.util.Set.of())));
 
         service.start(ScenarioType.POD_MEMORY_LEAK, "admin");
 
