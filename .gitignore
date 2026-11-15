@@ -21,3 +21,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# k6 raw output (numbers are recorded in the README)
+loadtest/results/

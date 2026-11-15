@@ -3,6 +3,7 @@ package dev.cloudpilot.system;
 import java.time.Clock;
 import java.time.Instant;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +24,7 @@ public class PingController {
     }
 
     @GetMapping
+    @SecurityRequirements   // public liveness check
     public PingResponse ping() {
         return new PingResponse("ok", "cloudpilot", Instant.now(clock));
     }

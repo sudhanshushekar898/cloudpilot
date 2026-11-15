@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 import dev.cloudpilot.metrics.MetricStore;
 import dev.cloudpilot.metrics.MetricType;
 import dev.cloudpilot.metrics.WindowStats;
-import dev.cloudpilot.resources.CloudResource;
-import dev.cloudpilot.resources.CloudResourceRepository;
+import dev.cloudpilot.resources.ResourceRef;
+import dev.cloudpilot.resources.ResourceService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -39,13 +39,13 @@ public class AlertEngine {
 
     private final AlertRuleRepository rules;
     private final AlertRepository alerts;
-    private final CloudResourceRepository resources;
+    private final ResourceService resources;
     private final MetricStore metrics;
     private final ApplicationEventPublisher events;
     private final MeterRegistry registry;
     private final Timer runTimer;
 
-    public AlertEngine(AlertRuleRepository rules, AlertRepository alerts, CloudResourceRepository resources,
+    public AlertEngine(AlertRuleRepository rules, AlertRepository alerts, ResourceService resources,
                        MetricStore metrics, ApplicationEventPublisher events, MeterRegistry registry) {
         this.rules = rules;
         this.alerts = alerts;
@@ -65,7 +65,8 @@ public class AlertEngine {
     }
 
     private void evaluateRules(Instant now) {
-        List<CloudResource> allResources = resources.findAll();
+        // The public topology view, not the resources module's repository (ADR-0001).
+        List<ResourceRef> allResources = List.copyOf(resources.topology().values());
         // Upper bound is exclusive in the query; include samples recorded exactly at "now".
         Instant to = now.plusMillis(1);
 
@@ -76,18 +77,18 @@ public class AlertEngine {
             Map<UUID, Alert> firing = alerts.findByRuleIdAndStatus(rule.getId(), Alert.Status.FIRING).stream()
                     .collect(Collectors.toMap(Alert::getResourceId, Function.identity()));
 
-            for (CloudResource resource : allResources) {
-                if (!rule.appliesTo(resource.getType())) {
+            for (ResourceRef resource : allResources) {
+                if (!rule.appliesTo(resource.type())) {
                     continue;
                 }
-                Alert current = firing.get(resource.getId());
+                Alert current = firing.get(resource.id());
                 RuleEvaluator.Decision decision = evaluator.decide(rule.condition(),
-                        Optional.ofNullable(window.get(resource.getId())),
-                        Optional.ofNullable(recent.get(resource.getId())),
+                        Optional.ofNullable(window.get(resource.id())),
+                        Optional.ofNullable(recent.get(resource.id())),
                         current != null, windowStart);
 
                 switch (decision) {
-                    case FIRE -> fire(rule, resource, window.get(resource.getId()), now);
+                    case FIRE -> fire(rule, resource, window.get(resource.id()), now);
                     case RESOLVE -> resolve(current, now);
                     case NONE -> { }
                 }
@@ -95,14 +96,14 @@ public class AlertEngine {
         }
     }
 
-    private void fire(AlertRule rule, CloudResource resource, WindowStats stats, Instant now) {
+    private void fire(AlertRule rule, ResourceRef resource, WindowStats stats, Instant now) {
         String message = describe(rule, resource, stats.latestValue());
-        Alert alert = alerts.save(new Alert(rule.getId(), resource.getId(), rule.getSeverity(), message,
+        Alert alert = alerts.save(new Alert(rule.getId(), resource.id(), rule.getSeverity(), message,
                 stats.latestValue(), now));
         log.info("Alert fired: {}", message);
         registry.counter("cloudpilot.alerts.fired", "severity", rule.getSeverity().name(),
                 "metric", rule.getMetric().name()).increment();
-        events.publishEvent(new AlertFired(alert.getId(), rule.getId(), resource.getId(), rule.getSeverity(),
+        events.publishEvent(new AlertFired(alert.getId(), rule.getId(), resource.id(), rule.getSeverity(),
                 message, now));
     }
 
@@ -114,10 +115,10 @@ public class AlertEngine {
     }
 
     /** e.g. "checkout-api error rate 18% > 5% for 5 min". */
-    static String describe(AlertRule rule, CloudResource resource, double value) {
+    static String describe(AlertRule rule, ResourceRef resource, double value) {
         MetricType metric = rule.getMetric();
         return "%s %s %s %s %s for %d min".formatted(
-                resource.getName(),
+                resource.name(),
                 metric.name().toLowerCase().replace('_', ' '),
                 withUnit(value, metric),
                 rule.getOperator().symbol(),

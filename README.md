@@ -306,12 +306,49 @@ cloudpilot/
 
 | Level | Tools | What it covers |
 |---|---|---|
-| Unit / slice | JUnit 5, MockMvc, AssertJ | Controllers and services in isolation, with a fixed clock |
-| Integration | Testcontainers (real PostgreSQL + pgvector) | Flyway migrations, health checks, real HTTP calls |
-| Frontend | Vitest, React Testing Library | Components, with `fetch` mocked |
-| Coverage | JaCoCo | Build fails below 80% line coverage |
+| Unit | JUnit 5, Mockito, AssertJ | Pure logic: alert evaluation, grouping, guardrails, report metrics, with fixed clocks and seeded randomness |
+| Integration | Testcontainers (real PostgreSQL + pgvector), TestRestTemplate | Every API through real HTTP, security and SQL; Flyway migrations |
+| Architecture | ArchUnit | No module cycles; no module uses another's repositories or entities; the AI module can't start processes |
+| Retrieval quality | JUnit + PostgreSQL full-text search | The right runbook ranks first for every failure scenario |
+| Frontend | Vitest, React Testing Library | Pages and components with `fetch` mocked |
+| Coverage gates | JaCoCo, Vitest (v8) | Backend: build fails below 80% lines (currently 95%). Frontend: fails below 85% lines / 75% branches (currently 95% / 84%) |
+| Load | k6 | Dashboard API paths under 20 concurrent users ([results](#load-test-results)) |
+| Config | promtool, jq, `docker compose config` | Prometheus rules, Grafana dashboard and Compose file are valid |
 
-CI runs all of these on every pull request, then builds both Docker images.
+CI runs all of these except the load test on every push, then builds both Docker images.
+
+## Load test results
+
+[`loadtest/api-load.js`](loadtest/api-load.js) (k6) simulates dashboards polling the API through nginx:
+each virtual user loads resources, the alert summary and active incidents every second, and one
+in five iterations also loads an hour of metric history for a resource. 20 users for 1 minute,
+after a 30 s ramp-up; the metric simulator keeps writing in the background.
+
+| Measure | Result | Threshold |
+|---|---|---|
+| Requests | 5,093 (48 req/s) | — |
+| Failed requests | 0.00% | < 1% |
+| Checks passed | 100% (5,092 / 5,092) | > 99% |
+| Latency p50 / p90 / p95 | 8.7 ms / 16.1 ms / 18.7 ms | p95 < 500 ms |
+| `GET /api/v1/resources` p95 | 18.8 ms | < 300 ms |
+| Slowest request | 371 ms | — |
+
+Measured on 2026-11-15 with the whole stack in Docker Desktop on one laptop (Intel i5-12450H,
+16 GB RAM), so the load generator and the system shared the machine. Treat these as a baseline
+for spotting regressions, not as production capacity.
+
+```bash
+docker compose up -d
+docker run --rm --network cloudpilot_default -v "$PWD/loadtest:/scripts" grafana/k6:0.54.0 run /scripts/api-load.js
+```
+
+## API documentation
+
+The OpenAPI spec is generated from the code, so it can't drift from what's deployed:
+
+- Swagger UI: http://localhost:8080/swagger-ui.html (log in with `POST /api/v1/auth/login`, then
+  **Authorize** with the token)
+- Raw spec: http://localhost:8080/v3/api-docs
 
 ## Features (planned)
 

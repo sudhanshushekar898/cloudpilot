@@ -14,8 +14,8 @@ import dev.cloudpilot.metrics.LogEvent;
 import dev.cloudpilot.metrics.MetricSample;
 import dev.cloudpilot.metrics.MetricStore;
 import dev.cloudpilot.metrics.MetricType;
-import dev.cloudpilot.resources.CloudResource;
-import dev.cloudpilot.resources.CloudResourceRepository;
+import dev.cloudpilot.resources.ResourceRef;
+import dev.cloudpilot.resources.ResourceService;
 import dev.cloudpilot.resources.ResourceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ class SimulatorJobTest {
     private static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
 
     @Mock
-    private CloudResourceRepository resources;
+    private ResourceService resources;
 
     @Mock
     private MetricStore store;
@@ -57,9 +57,11 @@ class SimulatorJobTest {
     }
 
     private void givenTwoResources() {
-        when(resources.findAll()).thenReturn(List.of(
-                new CloudResource(UUID.randomUUID(), "orders-db", ResourceType.RDS, "ap-south-1", "db"),
-                new CloudResource(UUID.randomUUID(), "checkout-api", ResourceType.API, "ap-south-1", "api")));
+        UUID db = UUID.randomUUID();
+        UUID api = UUID.randomUUID();
+        when(resources.topology()).thenReturn(java.util.Map.of(
+                db, new ResourceRef(db, "orders-db", ResourceType.RDS, java.util.Set.of()),
+                api, new ResourceRef(api, "checkout-api", ResourceType.API, java.util.Set.of(db))));
     }
 
     @SuppressWarnings("unchecked")

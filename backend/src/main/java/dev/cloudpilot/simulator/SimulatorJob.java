@@ -10,7 +10,7 @@ import java.util.Optional;
 import dev.cloudpilot.metrics.EventStore;
 import dev.cloudpilot.metrics.MetricSample;
 import dev.cloudpilot.metrics.MetricStore;
-import dev.cloudpilot.resources.CloudResourceRepository;
+import dev.cloudpilot.resources.ResourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,7 +33,7 @@ public class SimulatorJob {
     /** Backfilled history is coarser than live data; charts bucket it anyway. */
     private static final Duration BACKFILL_STEP = Duration.ofSeconds(30);
 
-    private final CloudResourceRepository resources;
+    private final ResourceService resources;
     private final MetricStore store;
     private final EventStore events;
     private final MetricGenerator generator;
@@ -42,7 +42,7 @@ public class SimulatorJob {
     private final SimulatorProperties properties;
     private final Clock clock;
 
-    public SimulatorJob(CloudResourceRepository resources, MetricStore store, EventStore events,
+    public SimulatorJob(ResourceService resources, MetricStore store, EventStore events,
                         MetricGenerator generator, LogGenerator logGenerator, ScenarioManager scenarios,
                         SimulatorProperties properties, Clock clock) {
         this.resources = resources;
@@ -81,8 +81,8 @@ public class SimulatorJob {
     }
 
     private List<SimulatedResource> loadResources() {
-        return resources.findAll().stream()
-                .map(r -> new SimulatedResource(r.getId(), r.getName(), r.getType()))
+        return resources.topology().values().stream()
+                .map(r -> new SimulatedResource(r.id(), r.name(), r.type()))
                 .toList();
     }
 }

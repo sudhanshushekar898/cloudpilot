@@ -24,6 +24,52 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M10: Quality hardening
+
+**Built:** OpenAPI docs with Swagger UI (generated from the controllers, JWT bearer scheme, public
+endpoints marked), ArchUnit tests for the module rules in ADR-0001, a refactor that fixed the
+violations they found, a frontend coverage gate in CI, and a k6 load test with recorded results.
+
+**Decisions and why:**
+- API docs generated from code (springdoc) rather than written by hand, so they can't drift.
+- Architecture rules as tests: "modules don't touch each other's repositories" was only a sentence in
+  an ADR until now. A rule nobody checks gets broken, and it had been.
+- ArchUnit wrapped in plain JUnit tests instead of its own engine, so Surefire always counts them.
+- Coverage gates set a bit below the measured numbers (frontend 94.6% lines when added, gate 85%):
+  strict enough to catch a big untested feature, loose enough not to block small changes.
+- The load test goes through nginx inside the Docker network, like a real browser, with the simulator
+  writing in the background. Thresholds make k6 itself pass or fail.
+- Results recorded with the machine they ran on: a laptop number is a regression baseline, not capacity.
+
+**What broke / what confused me:**
+- My first ArchUnit test "passed" with zero rules run. Surefire's `-Dtest` filter doesn't select
+  ArchUnit's field-based rules, so nothing executed. I only noticed because the clean result was
+  suspicious and the report said `tests="0"`. My RecruitFlow project had already hit this, and I
+  reused its fix (plain JUnit tests).
+- Once the rules ran, they failed: AlertEngine, AlertQueryService, SimulatorJob and ScenarioService
+  used the resources module's repository and JPA entity directly, against ADR-0001. Code from M3–M4
+  that nobody had caught. Fixed by using `ResourceService.topology()`, the module's public read model.
+- The OpenAPI spec first said login needed a token (a global security requirement); marked login and
+  ping as public.
+
+**What I learned:**
+- A green test that runs nothing is the most dangerous kind; check the test count, not just the colour.
+- Architecture tests turn design decisions into guarantees.
+- k6: scenarios, ramping VUs, tagged thresholds, `setup()` for shared login.
+
+**Interview questions I can now answer:**
+- Q: How do you keep a modular monolith modular?
+  A: Each module exposes services and read models; ArchUnit tests fail the build if any module uses
+  another's repositories or entities, or if modules form a cycle. They found four real violations in
+  my code, which I fixed.
+- Q: What load can it handle?
+  A: On a laptop with everything in Docker, 20 users polling the dashboard every second gave 48 req/s
+  with p95 18.7 ms and zero errors. That's a regression baseline. For capacity I'd run k6 from a
+  separate machine against production-like infrastructure and ramp until p95 or errors break.
+- Q: How do you know your tests actually test something?
+  A: Coverage gates in CI for both backend and frontend, and I check that suites run the number of
+  tests I expect. I've caught a "passing" suite that ran zero tests.
+
 ## 2026-11-15 — M9: Monitoring CloudPilot itself
 
 **Built:** a Prometheus metrics endpoint with latency histograms, product metrics (alerts fired and

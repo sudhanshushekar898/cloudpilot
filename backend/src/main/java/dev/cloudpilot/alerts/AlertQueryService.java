@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import dev.cloudpilot.resources.CloudResource;
-import dev.cloudpilot.resources.CloudResourceRepository;
+import dev.cloudpilot.resources.ResourceRef;
+import dev.cloudpilot.resources.ResourceService;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +19,9 @@ public class AlertQueryService {
 
     private final AlertRepository alerts;
     private final AlertRuleRepository rules;
-    private final CloudResourceRepository resources;
+    private final ResourceService resources;
 
-    public AlertQueryService(AlertRepository alerts, AlertRuleRepository rules, CloudResourceRepository resources) {
+    public AlertQueryService(AlertRepository alerts, AlertRuleRepository rules, ResourceService resources) {
         this.alerts = alerts;
         this.rules = rules;
         this.resources = resources;
@@ -33,8 +33,8 @@ public class AlertQueryService {
                 : alerts.findByStatusOrderByFiredAtDesc(status, Limit.of(limit));
 
         // Both tables are small (dozens of rows), so two lookups beat a join per alert.
-        Map<UUID, String> resourceNames = resources.findAll().stream()
-                .collect(Collectors.toMap(CloudResource::getId, CloudResource::getName));
+        Map<UUID, String> resourceNames = resources.topology().values().stream()
+                .collect(Collectors.toMap(ResourceRef::id, ResourceRef::name));
         Map<UUID, String> ruleNames = rules.findAll().stream()
                 .collect(Collectors.toMap(AlertRule::getId, AlertRule::getName));
 
