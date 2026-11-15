@@ -26,7 +26,8 @@ public class AnalysisRunner {
         this.validator = validator;
     }
 
-    public record Outcome(AnalysisValidator.Validated validated, String analyzer, String model) {
+    /** @param fellBack true when the preferred (LLM) analyser failed or refused and the fallback answered */
+    public record Outcome(AnalysisValidator.Validated validated, String analyzer, String model, boolean fellBack) {
     }
 
     public Outcome run(EvidenceBundle bundle) {
@@ -55,6 +56,6 @@ public class AnalysisRunner {
                     validated.likelyCause(), validated.confidence(), validated.confidenceReason(),
                     validated.verification(), validated.remediation(), warnings);
         }
-        return new Outcome(validated, analyzer.name(), analyzer.model());
+        return new Outcome(validated, analyzer.name(), analyzer.model(), !notes.isEmpty());
     }
 }
