@@ -1,0 +1,14 @@
+# Prometheus for the local CloudPilot stack (docker compose).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: cloudpilot
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # Management port inside the Docker network; not published to the host.
+      - targets: ["backend:8081"]
