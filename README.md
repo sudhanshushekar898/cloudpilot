@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M8 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M9 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -28,7 +28,8 @@ docker compose up --build
 |---|---|
 | Web app | http://localhost:3000 |
 | API ping | http://localhost:8080/api/v1/ping |
-| API health | http://localhost:8080/actuator/health |
+| Grafana dashboard | http://localhost:3001 (read-only without login) |
+| Prometheus | http://localhost:9090 |
 
 ### Run for development
 
@@ -174,6 +175,56 @@ document. The root-cause draft quotes the incident's analysis and asks a person 
 | Responders | incidents resolved and mean time to resolve per person |
 
 Details: [ADR-0009](docs/adr/0009-postmortems-and-reliability-metrics.md).
+
+## Monitoring CloudPilot itself
+
+- **Metrics:** Prometheus scrapes the backend every 15 s on a private management port (8081, not
+  published). Besides HTTP and JVM metrics there are product metrics: alerts fired and grouped,
+  incidents opened and active, time to resolve, AI analysis latency and fallbacks, alert-engine run
+  time, failed logins.
+- **Dashboard:** Grafana's *CloudPilot overview* (provisioned from `ops/grafana`) shows request rate,
+  5xx ratio, p50/p95/p99 latency, active incidents, alerts, AI analysis and JVM heap.
+- **Logs:** JSON (Elastic Common Schema) in Docker. Every request gets an `X-Request-Id` (sent back in
+  the response), and every log line for that request includes it as `requestId`.
+- **Alerts:** five Prometheus rules in `ops/prometheus/alerts.yml`, checked by `promtool` in CI.
+  Details: [ADR-0010](docs/adr/0010-observability.md).
+
+## Operating CloudPilot (runbook)
+
+Each Prometheus alert links to one of these sections.
+
+### CloudPilot down
+`up{job="cloudpilot"} == 0` for 1 minute.
+1. `docker compose ps`: is `backend` running and healthy?
+2. `docker compose logs backend --tail 100`: look for startup errors (database unreachable, a
+   failed Flyway migration, the prod profile refusing a default secret).
+3. Check the database: `docker compose ps db`. The backend won't start without it.
+4. Restart only the backend: `docker compose up -d backend`. Simulated metrics resume; alert rules
+   re-evaluate from stored data, so nothing is lost.
+
+### High error rate
+More than 5% of API requests return 5xx for 5 minutes.
+1. Grafana → *API requests by status*: which status code, since when?
+2. Take a `requestId` from a failing response (or from the logs) and search the backend logs for it.
+3. Common causes: database connection errors (check `db`), a bad deploy (roll back the image).
+
+### Slow API
+p95 latency above 1 s for 5 minutes.
+1. Grafana → *API latency*: all endpoints or one? Check JVM heap for memory pressure.
+2. Slow AI analysis does not count here (it has its own metric), but heavy report or timeline queries can.
+3. Check the database for long-running queries: `SELECT pid, now() - query_start, query FROM pg_stat_activity WHERE state <> 'idle';`
+
+### Slow alert engine
+An evaluation run takes over 20 s of its 30 s interval.
+1. Usually too many rules or resources, or slow `metric_samples` queries.
+2. Check the retention job ran (samples older than 7 days should be gone) and that the
+   `metric_samples_lookup` index exists.
+
+### AI falling back
+More than 3 analyses in 30 minutes fell back to the rule-based analyser.
+1. Answers still work (rule-based). Look in the logs for `LLM analysis failed` or `refused`.
+2. Failures: check the API key, rate limits and network access to the Claude API. Refusals: check
+   the evidence for unusual content in log lines.
 
 ## API
 

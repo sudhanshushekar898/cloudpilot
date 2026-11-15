@@ -16,5 +16,5 @@ COPY --from=build /src/target/cloudpilot-backend-*.jar app.jar
 USER cloudpilot
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=5 \
-  CMD wget -qO- http://localhost:8080/actuator/health/readiness || exit 1
+  CMD wget -qO- http://localhost:${MANAGEMENT_SERVER_PORT:-8080}/actuator/health/readiness || exit 1
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

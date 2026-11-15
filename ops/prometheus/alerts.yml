@@ -1,0 +1,54 @@
+# Alerts about CloudPilot itself (who watches the watcher?). Each one links to the runbook
+# section in the README: "Operating CloudPilot".
+groups:
+  - name: cloudpilot
+    rules:
+      - alert: CloudPilotDown
+        expr: up{job="cloudpilot"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: CloudPilot backend is not answering metric scrapes
+          runbook: README.md#cloudpilot-down
+
+      - alert: CloudPilotHighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="cloudpilot", uri!~"/actuator.*", status=~"5.."}[5m]))
+            /
+          sum(rate(http_server_requests_seconds_count{job="cloudpilot", uri!~"/actuator.*"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: More than 5% of API requests are failing with 5xx
+          runbook: README.md#high-error-rate
+
+      - alert: CloudPilotSlowApi
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{job="cloudpilot", uri!~"/actuator.*"}[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: API p95 latency is above 1 second
+          runbook: README.md#slow-api
+
+      - alert: CloudPilotAlertEngineSlow
+        # The engine runs every 30 s; runs taking 20 s+ are close to overlapping.
+        expr: max(cloudpilot_alerts_engine_run_seconds_max{job="cloudpilot"}) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Alert evaluation is taking most of its 30 s interval
+          runbook: README.md#slow-alert-engine
+
+      - alert: CloudPilotAiFallingBack
+        expr: sum(increase(cloudpilot_analysis_duration_seconds_count{job="cloudpilot", outcome="fallback"}[30m])) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: AI analysis keeps falling back to the rule-based analyser
+          runbook: README.md#ai-falling-back

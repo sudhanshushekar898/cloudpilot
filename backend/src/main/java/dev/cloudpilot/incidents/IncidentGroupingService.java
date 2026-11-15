@@ -13,6 +13,8 @@ import dev.cloudpilot.alerts.AlertFired;
 import dev.cloudpilot.alerts.AlertResolved;
 import dev.cloudpilot.resources.ResourceRef;
 import dev.cloudpilot.resources.ResourceService;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -40,14 +42,22 @@ public class IncidentGroupingService {
     private final IncidentAlertRepository incidentAlerts;
     private final TimelineEntryRepository timeline;
     private final ResourceService resources;
+    private final MeterRegistry registry;
     private final AlertGrouper grouper = new AlertGrouper(GROUPING_WINDOW);
 
     public IncidentGroupingService(IncidentRepository incidents, IncidentAlertRepository incidentAlerts,
-                                   TimelineEntryRepository timeline, ResourceService resources) {
+                                   TimelineEntryRepository timeline, ResourceService resources,
+                                   MeterRegistry registry) {
         this.incidents = incidents;
         this.incidentAlerts = incidentAlerts;
         this.timeline = timeline;
         this.resources = resources;
+        this.registry = registry;
+        // Read on every scrape: one cheap indexed count, always current.
+        Gauge.builder("cloudpilot.incidents.active", incidents, repo -> repo.countByStatusIn(ACTIVE))
+                .description("Incidents not yet resolved")
+                .strongReference(true)
+                .register(registry);
     }
 
     @TransactionalEventListener(fallbackExecution = true)
@@ -82,10 +92,13 @@ public class IncidentGroupingService {
             incident = incidents.findById(match.get().incidentId()).orElseThrow();
             incident.recordAlert(event.severity(), event.firedAt());
             reason = match.get().reason();
+            // How much noise grouping removes: each of these would otherwise have been a separate page.
+            registry.counter("cloudpilot.alerts.grouped").increment();
         } else {
             incident = incidents.saveAndFlush(new Incident(event.message(), event.severity(), event.firedAt()));
             reason = "First alert";
             log.info("Opened incident for: {}", event.message());
+            registry.counter("cloudpilot.incidents.opened", "severity", event.severity().name()).increment();
         }
 
         incidentAlerts.save(new IncidentAlert(incident.getId(), event.alertId(), event.resourceId(), event.severity(),

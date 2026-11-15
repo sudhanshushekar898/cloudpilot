@@ -24,6 +24,56 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M9: Monitoring CloudPilot itself
+
+**Built:** a Prometheus metrics endpoint with latency histograms, product metrics (alerts fired and
+grouped, incidents opened and active, time to resolve, AI analysis latency and fallbacks, engine
+run time, failed logins), a request-id filter, JSON logs in Docker, Prometheus and Grafana in
+Compose with five alert rules and a provisioned 10-panel dashboard, a CI job that validates them,
+and a runbook section for every alert.
+
+**Decisions and why:**
+- Histograms, not client-side percentiles: Prometheus can compute p95 from buckets across many
+  instances; percentiles computed inside each instance can't be averaged.
+- Product metrics where the events happen (the alert engine counts alerts, grouping counts saved
+  pages). They answer "is CloudPilot doing its job?", which JVM metrics can't.
+- Actuator on a private port in Docker instead of protecting `/actuator/prometheus` with a token:
+  Prometheus inside the network scrapes freely, nothing outside can reach it.
+- The request id comes from the caller only if it's short and plain; anything else is replaced, so a
+  header can't inject fake lines into the logs.
+- Failed logins are logged and counted, without the email address.
+- Dashboard and alert rules live in the repository and are provisioned at start-up, so they're
+  reviewed and versioned like code, and CI rejects invalid rules.
+
+**What broke / what confused me:**
+- `management.server.port: ${server.port}` broke the health test: in tests the port is 0, which for
+  actuator means "a separate random port". I committed before noticing because my test and commit
+  commands were chained with `;` instead of `&&`. Fixed in a follow-up commit; now I only chain with `&&`.
+- `/actuator/prometheus` returned 404 in tests even with the dependency: `@SpringBootTest` turns
+  metrics exporters off by default. `@AutoConfigureObservability` turns them on for that test.
+- My first PromQL checks with `curl` returned nothing: curl treats `{}` and `[]` as URL patterns.
+  `curl -G --data-urlencode` fixed it.
+- No log line showed my test request id: a failed login logged nothing at all. That was a real gap,
+  so I added the security log line.
+- Right after a restart, `rate()` is 0 and p95 is NaN until Prometheus has two scrapes.
+
+**What I learned:**
+- Micrometer counters, timers and gauges; how they appear in Prometheus (`_total`, `_seconds_bucket`).
+- PromQL: `rate`, `increase`, `histogram_quantile`, ratios for error rates.
+- MDC: per-thread logging context, and why it must be cleared in `finally` (threads are reused).
+- Grafana provisioning: datasources and dashboards as files.
+
+**Interview questions I can now answer:**
+- Q: How would you find out why a user's request failed?
+  A: Every response has an `X-Request-Id`; every log line for that request carries the same id in
+  JSON logs, so one search finds exactly those lines. Dashboards show whether it's widespread.
+- Q: How do you monitor the monitoring system?
+  A: CloudPilot exports its own metrics and has alerts on itself: down, error rate, latency, an alert
+  engine close to overlapping its interval, and the AI provider failing. Each alert links to a runbook.
+- Q: Why histograms for latency?
+  A: Percentiles can't be averaged across instances. Histogram buckets can be summed, and then
+  `histogram_quantile` computes the real p95 for the whole service.
+
 ## 2026-11-15 — M8: Postmortems and reliability reports
 
 **Built:** postmortems (Flyway V11) drafted by Claude or a template after an incident is resolved,

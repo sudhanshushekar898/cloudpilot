@@ -52,6 +52,7 @@ class AnalysisRunnerTest {
 
         assertThat(outcome.analyzer()).isEqualTo("claude");
         assertThat(outcome.model()).isEqualTo("claude-opus-5-5");
+        assertThat(outcome.fellBack()).isFalse();
         assertThat(outcome.validated().confidence()).isEqualTo(0.8);
     }
 
@@ -75,6 +76,7 @@ class AnalysisRunnerTest {
         AnalysisRunner.Outcome outcome = runner.run(BUNDLE);
 
         assertThat(outcome.analyzer()).isEqualTo("rule-based");
+        assertThat(outcome.fellBack()).isTrue();
         assertThat(outcome.validated().warnings())
                 .contains("The AI model was unavailable, so this is the rule-based analysis instead.");
     }

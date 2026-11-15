@@ -17,6 +17,8 @@ import dev.cloudpilot.knowledge.KnowledgeService;
 import dev.cloudpilot.metrics.EventStore;
 import dev.cloudpilot.resources.ResourceRef;
 import dev.cloudpilot.resources.ResourceService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,10 +43,12 @@ public class AnalysisService {
     private final AnalysisRunner runner;
     private final AnalysisStore store;
     private final Clock clock;
+    private final MeterRegistry registry;
     private final EvidenceBundleBuilder bundles = new EvidenceBundleBuilder(15, 4);
 
     public AnalysisService(IncidentQueryService incidents, KnowledgeService knowledge, ResourceService resources,
-                           EventStore events, AnalysisRunner runner, AnalysisStore store, Clock clock) {
+                           EventStore events, AnalysisRunner runner, AnalysisStore store, Clock clock,
+                           MeterRegistry registry) {
         this.incidents = incidents;
         this.knowledge = knowledge;
         this.resources = resources;
@@ -52,6 +56,7 @@ public class AnalysisService {
         this.runner = runner;
         this.store = store;
         this.clock = clock;
+        this.registry = registry;
     }
 
     public AnalysisResult analyze(UUID incidentId, String question, String requestedBy) {
@@ -66,7 +71,11 @@ public class AnalysisService {
         }
 
         EvidenceBundle bundle = collect(incident, asked);
+        Timer.Sample sample = Timer.start(registry);
         AnalysisRunner.Outcome outcome = runner.run(bundle);
+        // Latency and fallback rate per analyser: a rising "fallback" count means the AI provider is struggling.
+        sample.stop(registry.timer("cloudpilot.analysis.duration",
+                "analyzer", outcome.analyzer(), "outcome", outcome.fellBack() ? "fallback" : "answered"));
         AnalysisValidator.Validated v = outcome.validated();
 
         AnalysisResult result = new AnalysisResult(UUID.randomUUID(), incidentId, asked, v.summary(),

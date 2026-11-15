@@ -14,6 +14,8 @@ import dev.cloudpilot.metrics.MetricType;
 import dev.cloudpilot.metrics.WindowStats;
 import dev.cloudpilot.resources.CloudResource;
 import dev.cloudpilot.resources.CloudResourceRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -40,18 +42,29 @@ public class AlertEngine {
     private final CloudResourceRepository resources;
     private final MetricStore metrics;
     private final ApplicationEventPublisher events;
+    private final MeterRegistry registry;
+    private final Timer runTimer;
 
     public AlertEngine(AlertRuleRepository rules, AlertRepository alerts, CloudResourceRepository resources,
-                       MetricStore metrics, ApplicationEventPublisher events) {
+                       MetricStore metrics, ApplicationEventPublisher events, MeterRegistry registry) {
         this.rules = rules;
         this.alerts = alerts;
         this.resources = resources;
         this.metrics = metrics;
         this.events = events;
+        this.registry = registry;
+        // If one engine run gets close to the 30 s interval, runs start to overlap.
+        this.runTimer = Timer.builder("cloudpilot.alerts.engine.run")
+                .description("Time to evaluate every enabled rule once")
+                .register(registry);
     }
 
     @Transactional
     public void evaluate(Instant now) {
+        runTimer.record(() -> evaluateRules(now));
+    }
+
+    private void evaluateRules(Instant now) {
         List<CloudResource> allResources = resources.findAll();
         // Upper bound is exclusive in the query; include samples recorded exactly at "now".
         Instant to = now.plusMillis(1);
@@ -87,6 +100,8 @@ public class AlertEngine {
         Alert alert = alerts.save(new Alert(rule.getId(), resource.getId(), rule.getSeverity(), message,
                 stats.latestValue(), now));
         log.info("Alert fired: {}", message);
+        registry.counter("cloudpilot.alerts.fired", "severity", rule.getSeverity().name(),
+                "metric", rule.getMetric().name()).increment();
         events.publishEvent(new AlertFired(alert.getId(), rule.getId(), resource.getId(), rule.getSeverity(),
                 message, now));
     }
@@ -94,6 +109,7 @@ public class AlertEngine {
     private void resolve(Alert alert, Instant now) {
         alert.resolve(now);
         log.info("Alert resolved: {}", alert.getMessage());
+        registry.counter("cloudpilot.alerts.resolved", "severity", alert.getSeverity().name()).increment();
         events.publishEvent(new AlertResolved(alert.getId(), alert.getRuleId(), alert.getResourceId(), now));
     }
 

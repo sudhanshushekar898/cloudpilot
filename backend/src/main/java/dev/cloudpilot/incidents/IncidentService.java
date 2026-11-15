@@ -1,6 +1,7 @@
 package dev.cloudpilot.incidents;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -8,6 +9,8 @@ import java.util.function.Consumer;
 import dev.cloudpilot.auth.Role;
 import dev.cloudpilot.auth.UserDirectory;
 import dev.cloudpilot.common.NotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +30,15 @@ public class IncidentService {
     private final TimelineEntryRepository timeline;
     private final UserDirectory users;
     private final Clock clock;
+    private final MeterRegistry registry;
 
     public IncidentService(IncidentRepository incidents, TimelineEntryRepository timeline, UserDirectory users,
-                           Clock clock) {
+                           Clock clock, MeterRegistry registry) {
         this.incidents = incidents;
         this.timeline = timeline;
         this.users = users;
         this.clock = clock;
+        this.registry = registry;
     }
 
     public void acknowledge(UUID id, Actor actor) {
@@ -45,7 +50,14 @@ public class IncidentService {
     }
 
     public void resolve(UUID id, Actor actor, String resolution) {
-        changeStatus(id, actor, incident -> incident.resolve(resolution, now()));
+        changeStatus(id, actor, incident -> {
+            incident.resolve(resolution, now());
+            // MTTR as a live metric, per severity; the Reports page computes the same from the database.
+            Timer.builder("cloudpilot.incidents.time.to.resolve")
+                    .tag("severity", incident.getSeverity().name())
+                    .register(registry)
+                    .record(Duration.between(incident.getOpenedAt(), incident.getResolvedAt()));
+        });
     }
 
     public void assign(UUID id, Actor actor, UUID assigneeId) {

@@ -44,12 +44,31 @@ cloudpilot:
 server:
   port: 8080
 
+logging:
+  pattern:
+    # Plain-text logs (local dev) show the request id next to the level. In Docker,
+    # LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs switches to JSON, which includes it as a field.
+    level: "%5p [%X{requestId:-}]"
+
 management:
+  # Actuator shares the application port by default. In Docker, MANAGEMENT_SERVER_PORT=8081 moves it
+  # to a port that is not published, so only Prometheus inside the network can scrape it.
+  # (Setting it here to ${server.port} would break tests: port 0 means "a separate random port".)
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: cloudpilot
+    distribution:
+      # Histogram buckets so Prometheus can compute p95/p99 latency across instances.
+      percentiles-histogram:
+        http.server.requests: true
+        cloudpilot.analysis.duration: true
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s
