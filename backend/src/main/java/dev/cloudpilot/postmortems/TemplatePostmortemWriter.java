@@ -29,7 +29,7 @@ public class TemplatePostmortemWriter {
         String rootCause;
         if (facts.likelyCause() != null) {
             rootCause = "%s (from the %s analysis, %d%% confidence). Confirm or correct this before approving."
-                    .formatted(facts.likelyCause().text(), facts.likelyCause().analyzer(),
+                    .formatted(facts.likelyCause().text().strip().replaceAll("\\.+$", ""), facts.likelyCause().analyzer(),
                             Math.round(facts.likelyCause().confidence() * 100));
         } else {
             rootCause = "To be written. The probable origin was " + facts.probableOrigin()

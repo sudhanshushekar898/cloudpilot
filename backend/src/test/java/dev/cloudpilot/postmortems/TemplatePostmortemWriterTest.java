@@ -42,6 +42,14 @@ class TemplatePostmortemWriterTest {
     }
 
     @Test
+    void aCauseEndingInAFullStopIsNotDoublePunctuated() {
+        PostmortemContent draft = writer.write(facts(new PostmortemFacts.LikelyCause(
+                "A deployment to checkout-api is the most likely cause.", 0.6, "rule-based"), List.of()));
+
+        assertThat(draft.rootCause()).startsWith("A deployment to checkout-api is the most likely cause (from the");
+    }
+
+    @Test
     void withoutAnAnalysisTheRootCauseIsLeftForAPersonToWrite() {
         PostmortemContent draft = writer.write(facts(null, List.of()));
 
