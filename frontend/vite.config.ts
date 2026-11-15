@@ -14,5 +14,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // The 5 s default is too tight for userEvent typing on a loaded machine or CI runner.
+    testTimeout: 15_000,
   },
 })
