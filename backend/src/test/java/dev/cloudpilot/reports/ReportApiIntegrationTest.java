@@ -12,6 +12,7 @@ import dev.cloudpilot.auth.Role;
 import dev.cloudpilot.incidents.IncidentRepository;
 import dev.cloudpilot.support.IntegrationTest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -45,6 +46,9 @@ class ReportApiIntegrationTest extends IntegrationTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    // Before as well as after: an open incident left by another test class would otherwise absorb
+    // this test's alert (the grouper attaches it) and the MTTR would be seconds, not 30 minutes.
+    @BeforeEach
     @AfterEach
     void cleanUp() {
         jdbc.update("delete from incidents");
