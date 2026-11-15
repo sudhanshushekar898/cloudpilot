@@ -45,11 +45,25 @@ server:
   port: 8080
 
 management:
+  # In Docker this is 8081 and not published: only Prometheus inside the network can scrape.
+  # Locally and in tests it defaults to the application port.
+  server:
+    port: ${MANAGEMENT_PORT:${server.port}}
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: cloudpilot
+    distribution:
+      # Histogram buckets so Prometheus can compute p95/p99 latency across instances.
+      percentiles-histogram:
+        http.server.requests: true
+        cloudpilot.analysis.duration: true
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s
