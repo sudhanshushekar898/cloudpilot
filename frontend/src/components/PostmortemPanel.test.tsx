@@ -72,7 +72,9 @@ describe('PostmortemPanel', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const approved = { ...draft, status: 'APPROVED' as const, approvedBy: 'lead@cloudpilot.dev', approvedAt: '2026-11-15T11:00:00Z' }
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-      if ((init as RequestInit | undefined)?.method === 'POST') return Promise.resolve(jsonResponse(approved))
+      const method = (init as RequestInit | undefined)?.method
+      if (method === 'PUT') return Promise.resolve(jsonResponse(draft))   // approve saves the screen first
+      if (method === 'POST') return Promise.resolve(jsonResponse(approved))
       return mockApi({ '/api/v1/incidents/i1/postmortem': draft })(input, init)
     })
     renderWithProviders(<PostmortemPanel incidentId="i1" resolved />, { role: 'ADMIN' })
