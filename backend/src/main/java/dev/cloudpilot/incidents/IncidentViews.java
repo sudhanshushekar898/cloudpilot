@@ -15,7 +15,7 @@ public final class IncidentViews {
 
     public record Summary(UUID id, String key, String title, IncidentStatus status, Severity severity,
                           String assigneeName, int alertCount, int activeAlertCount, List<String> resourceNames,
-                          Instant openedAt, Instant resolvedAt) {
+                          Instant openedAt, Instant acknowledgedAt, Instant resolvedAt) {
     }
 
     public record Detail(UUID id, String key, String title, IncidentStatus status, Severity severity,
