@@ -35,6 +35,8 @@ public class SecurityConfig {
                         // Scraped by Prometheus without a token. Protected by the network instead: in
                         // Docker the management port is not published and nginx only forwards /api.
                         .requestMatchers("/actuator/prometheus").permitAll()
+                        // API documentation is public; the endpoints it describes are not.
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
