@@ -317,6 +317,31 @@ cloudpilot/
 
 CI runs all of these except the load test on every push, then builds both Docker images.
 
+## Load test results
+
+[`loadtest/api-load.js`](loadtest/api-load.js) (k6) simulates dashboards polling the API through nginx:
+each virtual user loads resources, the alert summary and active incidents every second, and one
+in five iterations also loads an hour of metric history for a resource. 20 users for 1 minute,
+after a 30 s ramp-up; the metric simulator keeps writing in the background.
+
+| Measure | Result | Threshold |
+|---|---|---|
+| Requests | 5,093 (48 req/s) | — |
+| Failed requests | 0.00% | < 1% |
+| Checks passed | 100% (5,092 / 5,092) | > 99% |
+| Latency p50 / p90 / p95 | 8.7 ms / 16.1 ms / 18.7 ms | p95 < 500 ms |
+| `GET /api/v1/resources` p95 | 18.8 ms | < 300 ms |
+| Slowest request | 371 ms | — |
+
+Measured on 2026-11-15 with the whole stack in Docker Desktop on one laptop (Intel i5-12450H,
+16 GB RAM), so the load generator and the system shared the machine. Treat these as a baseline
+for spotting regressions, not as production capacity.
+
+```bash
+docker compose up -d
+docker run --rm --network cloudpilot_default -v "$PWD/loadtest:/scripts" grafana/k6:0.54.0 run /scripts/api-load.js
+```
+
 ## API documentation
 
 The OpenAPI spec is generated from the code, so it can't drift from what's deployed:
