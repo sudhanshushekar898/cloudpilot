@@ -93,4 +93,17 @@ class AnalysisRunnerTest {
         assertThat(outcome.validated().warnings())
                 .contains("The AI model declined to answer, so this is the rule-based analysis instead.");
     }
+
+    @Test
+    void skipsClaudeWhileTheKillSwitchIsOff() {
+        AnalysisRunner runner = new AnalysisRunner(Optional.of(analyzer("claude", "claude-opus-5-5", null, 0.8)), fallback,
+                new AnalysisValidator(), () -> false);
+
+        AnalysisRunner.Outcome outcome = runner.run(BUNDLE);
+
+        assertThat(outcome.analyzer()).isEqualTo("rule-based");
+        assertThat(outcome.fellBack()).isFalse();
+        assertThat(outcome.validated().warnings())
+                .contains("AI analysis is switched off by an admin, so this is the rule-based analysis.");
+    }
 }
