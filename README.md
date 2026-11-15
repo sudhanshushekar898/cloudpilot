@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M6 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M7 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -130,6 +130,31 @@ Runbooks are the team's written knowledge, and the only source the AI assistant 
 
 Why not embeddings yet: [ADR-0007](docs/adr/0007-runbook-retrieval-with-full-text-search.md).
 
+## AI root-cause analysis
+
+On any incident, ask a question such as *"Why did checkout fail?"*. The answer has a fixed shape:
+**observed evidence**, **likely cause**, **confidence**, **read-only verification steps** and
+**safe remediation steps**, and every statement links to the evidence behind it.
+
+- **Evidence only.** The analysis sees the incident's alerts (A1…), distinct error logs (L1…),
+  recent deployments (D1…) and the best-matching runbook sections (R1…). Nothing else.
+- **Claude when configured.** With `ANTHROPIC_API_KEY` set, `claude-opus-5-5` answers through the
+  official Anthropic Java SDK using structured outputs. Without a key, a deterministic rule-based
+  analyser answers. If Claude errors, times out or declines, the rule-based answer is shown with a note.
+- **Guardrails on every answer.** Citations to evidence that doesn't exist are removed, an unsupported
+  cause gets its confidence capped at 30%, and steps that delete, terminate or purge are marked
+  **Needs approval**.
+- **Never executes anything.** CloudPilot has no way to run commands; a person verifies and acts.
+- **Prompt-injection aware.** Log text is escaped and marked as untrusted data in the prompt.
+- Each answer is stored with the exact evidence it was given, for later review.
+
+```bash
+# Optional: enable Claude (rule-based analysis is used without it)
+ANTHROPIC_API_KEY=your-key docker compose up -d
+```
+
+Design and trade-offs: [ADR-0008](docs/adr/0008-ai-root-cause-analysis.md).
+
 ## API
 
 | Method | Path | Access | Description |
@@ -166,6 +191,8 @@ Why not embeddings yet: [ADR-0007](docs/adr/0007-runbook-retrieval-with-full-tex
 | GET | `/api/v1/runbooks/suggestions?incidentId=` | signed in | Sections relevant to an incident |
 | POST | `/api/v1/runbooks` | Admin | Add a Markdown runbook (409 on duplicate title) |
 | DELETE | `/api/v1/runbooks/{slug}` | Admin | Delete a runbook |
+| POST | `/api/v1/incidents/{id}/analysis` | signed in | Ask a question; returns a cited analysis |
+| GET | `/api/v1/incidents/{id}/analysis` | signed in | Latest analysis for the incident |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 

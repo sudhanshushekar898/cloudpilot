@@ -24,6 +24,63 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M7: AI root-cause analysis
+
+**Built:** a numbered evidence bundle per incident (alerts, distinct logs, all recent deployments,
+retrieved runbook sections), a rule-based analyser, a Claude analyser (official Anthropic Java SDK,
+`claude-opus-5-5`, structured outputs, effort high), an `AnalysisRunner` that falls back to the rule
+-based answer on errors or refusals, guardrails that check every answer, JSONB storage of each answer
+with its evidence (Flyway V10), and an ask/latest API. Frontend: an AI analysis panel on each incident
+with the cause, a confidence bar, clickable citations, "Needs approval" badges and the evidence list.
+
+**Decisions and why:**
+- The model gets only the evidence bundle, and every item has an id it must cite (ADR-0008). That
+  turns "trust me" into "check A2 and L1".
+- The guardrails don't trust the model to follow the prompt. They check the output: fake citations are
+  removed, an uncited cause loses confidence, destructive steps are flagged. They run on the rule-based
+  answer too.
+- A rule-based analyser that always works. It's the fallback when the API is down or refuses, the
+  default without a key, and the baseline the LLM has to beat.
+- Structured outputs instead of "please answer in JSON": the SDK derives the schema from a Java record,
+  the API enforces it, and there's no fragile text parsing.
+- All deployments go in the evidence, not only related ones, so the analysis can explicitly rule out
+  the unrelated catalog-api release in the DB scenario.
+- Log text is escaped and wrapped in `<untrusted_log>`. A log line can contain anything, including
+  "ignore your instructions"; a test proves it can't break out of its element.
+- The system prompt never changes between incidents, so it's a cacheable prefix.
+- The Claude call sits behind a tiny `ClaudeGateway` interface, so everything else is tested with a fake.
+- Same question within 30 s returns the stored answer: no duplicate cost from double-clicks.
+
+**What broke / what confused me:**
+- Docker Desktop stopped between sessions again; the integration tests and the stack both need it.
+- A prompt test expected `checkout-api -> orders-db` but the code correctly escaped it to `-&gt;`.
+- Adding the analysis panel broke five incident-page tests: their mock answered *every* URL starting
+  with `/api/v1/incidents/i1`, including the new `/analysis` call, with the incident itself.
+- I couldn't call the real Claude API without a key. The request shape and the JSON schema are
+  tested offline (building the request runs the SDK's schema check), but answer quality isn't.
+
+**What I learned:**
+- Structured outputs with the Java SDK: `StructuredOutputConfig` + a record class, typed response.
+- Claude Opus 5.5 always thinks; you tune depth with `effort`, not by turning thinking off.
+- Handle `stop_reason: refusal` before reading the content.
+- Prompt injection is defended in layers: escaping, labelling untrusted data, and validating output.
+
+**Interview questions I can now answer:**
+- Q: How do you stop the AI from hallucinating a root cause?
+  A: It only sees a numbered evidence bundle and must cite ids for every claim. A validator removes
+  citations that don't exist, drops uncited observations and caps the confidence of an uncited cause.
+  The UI links each claim to its evidence.
+- Q: What if the LLM is down, slow or refuses?
+  A: One retry, a 120-second timeout, then the deterministic rule-based analysis is shown with a note.
+  Refusals are checked explicitly. The incident page always gets an answer.
+- Q: What stops the AI from running something dangerous?
+  A: There is no execution path at all; the AI returns text. Destructive-looking steps are flagged
+  for approval, and a person runs everything.
+- Q: How would you measure whether Claude is better than the rule-based analyser?
+  A: Use the four simulator scenarios as labelled cases (known root cause, known red herring), run both
+  analysers, and score whether the cause names the right resource, cites valid evidence and avoids the
+  red herring. That's the next step once there's an API key.
+
 ## 2026-11-15 — M6: Runbook knowledge base and retrieval
 
 **Built:** runbooks and searchable chunks (Flyway V9), a Markdown chunker that keeps heading paths,
