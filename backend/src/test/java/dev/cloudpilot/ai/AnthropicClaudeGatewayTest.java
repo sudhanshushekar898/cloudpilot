@@ -21,7 +21,7 @@ class AnthropicClaudeGatewayTest {
     void buildsAStructuredRequestForTheConfiguredModelAndEffort() {
         AnthropicClaudeGateway gateway = new AnthropicClaudeGateway(client, "claude-opus-5-5", OutputConfig.Effort.HIGH, false);
 
-        StructuredMessageCreateParams<AnalysisDraft> params = gateway.buildParams("system prompt", "user message");
+        StructuredMessageCreateParams<AnalysisDraft> params = gateway.buildParams("system prompt", "user message", AnalysisDraft.class);
 
         String json = params.rawParams()._body().toString();
         assertThat(json).contains("claude-opus-5-5").contains("system prompt").contains("user message")
@@ -33,7 +33,7 @@ class AnthropicClaudeGatewayTest {
     void canOptIntoServerSideFallbacks() {
         AnthropicClaudeGateway gateway = new AnthropicClaudeGateway(client, "claude-opus-5-5", OutputConfig.Effort.HIGH, true);
 
-        StructuredMessageCreateParams<AnalysisDraft> params = gateway.buildParams("s", "u");
+        StructuredMessageCreateParams<AnalysisDraft> params = gateway.buildParams("s", "u", AnalysisDraft.class);
 
         assertThat(params.rawParams()._additionalBodyProperties()).containsKey("fallbacks");
         assertThat(params.rawParams()._headers().values("anthropic-beta")).contains(AnthropicClaudeGateway.FALLBACK_BETA);

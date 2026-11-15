@@ -24,15 +24,17 @@ class ClaudeAnalyzerTest {
         String system;
         String user;
         RuntimeException failWith;
+        Class<?> requestedType;
 
         @Override
-        public AnalysisDraft complete(String system, String user) {
+        public <T> T complete(String system, String user, Class<T> type) {
+            this.requestedType = type;
             this.system = system;
             this.user = user;
             if (failWith != null) {
                 throw failWith;
             }
-            return ANSWER;
+            return type.cast(ANSWER);
         }
 
         @Override
@@ -51,6 +53,7 @@ class ClaudeAnalyzerTest {
         assertThat(draft).isEqualTo(ANSWER);
         assertThat(gateway.system).isEqualTo(new PromptBuilder().system());
         assertThat(gateway.user).contains("id=\"A1\"").contains("INC-7");
+        assertThat(gateway.requestedType).isEqualTo(AnalysisDraft.class);
         assertThat(analyzer.name()).isEqualTo("claude");
         assertThat(analyzer.model()).isEqualTo("claude-opus-5-5");
     }

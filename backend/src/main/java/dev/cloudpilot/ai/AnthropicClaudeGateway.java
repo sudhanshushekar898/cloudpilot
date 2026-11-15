@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * Claude API calls through the official Anthropic Java SDK.
  *
  * <ul>
- *   <li>Structured outputs: the answer must match the {@link AnalysisDraft} JSON schema, which
+ *   <li>Structured outputs: the answer must match the JSON schema of the requested record type, which
  *       the SDK derives from the record and validates locally before returning it.</li>
  *   <li>Thinking: omitted, so Claude Opus 5.5 runs adaptive thinking (it can't be turned off);
  *       depth is set with effort.</li>
@@ -51,10 +51,11 @@ public class AnthropicClaudeGateway implements ClaudeGateway {
     }
 
     @Override
-    public AnalysisDraft complete(String system, String user) {
+    public <T> T complete(String system, String user, Class<T> type) {
         long started = System.nanoTime();
-        StructuredMessage<AnalysisDraft> response = client.messages().create(buildParams(system, user));
-        log.info("Claude analysis took {} ms, usage {}", (System.nanoTime() - started) / 1_000_000, response.usage());
+        StructuredMessage<T> response = client.messages().create(buildParams(system, user, type));
+        log.info("Claude {} took {} ms, usage {}", type.getSimpleName(), (System.nanoTime() - started) / 1_000_000,
+                response.usage());
 
         if (response.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
             String category = response.stopDetails()
@@ -70,15 +71,15 @@ public class AnthropicClaudeGateway implements ClaudeGateway {
     }
 
     /** Builds the request; separate so tests can check it (including the local schema check) offline. */
-    StructuredMessageCreateParams<AnalysisDraft> buildParams(String system, String user) {
-        StructuredMessageCreateParams.Builder<AnalysisDraft> builder = MessageCreateParams.builder()
+    <T> StructuredMessageCreateParams<T> buildParams(String system, String user, Class<T> type) {
+        StructuredMessageCreateParams.Builder<T> builder = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(MAX_TOKENS)
                 .system(system)
                 .addUserMessage(user)
-                .outputConfig(StructuredOutputConfig.<AnalysisDraft>builder()
+                .outputConfig(StructuredOutputConfig.<T>builder()
                         .effort(effort)
-                        .format(AnalysisDraft.class, JsonSchemaLocalValidation.YES)
+                        .format(type, JsonSchemaLocalValidation.YES)
                         .build());
         if (serverFallbacks) {
             // "default" lets the API pick the fallback model per refusal category.

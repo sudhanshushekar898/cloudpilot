@@ -27,6 +27,6 @@ public class ClaudeAnalyzer implements Analyzer {
 
     @Override
     public AnalysisDraft analyze(EvidenceBundle bundle) {
-        return gateway.complete(prompts.system(), prompts.user(bundle));
+        return gateway.complete(prompts.system(), prompts.user(bundle), AnalysisDraft.class);
     }
 }
