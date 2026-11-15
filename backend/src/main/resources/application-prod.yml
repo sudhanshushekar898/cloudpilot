@@ -1,0 +1,21 @@
+# Production profile (SPRING_PROFILES_ACTIVE=prod). Same image as every other environment;
+# only configuration changes. ProductionSafetyCheck refuses to start with dev secrets.
+server:
+  # Behind Caddy and nginx: trust X-Forwarded-* so redirects and links use https and the real host.
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    # Finish in-flight requests before stopping during a deploy.
+    timeout-per-shutdown-phase: 20s
+
+management:
+  server:
+    # Not published by Docker: only Prometheus and the container health check reach it.
+    port: 8081
+
+logging:
+  structured:
+    format:
+      console: ecs
