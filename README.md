@@ -12,7 +12,7 @@ The AI assistant answers questions like *"Why did checkout fail after 2 PM?"* us
 incident's own evidence (metrics, logs, deployment events) and the team's runbooks. It
 recommends safe remediation steps but **never runs commands against infrastructure**.
 
-> Status: early development (M7 of 11 done). See the [roadmap](#roadmap) below.
+> Status: early development (M8 of 11 done). See the [roadmap](#roadmap) below.
 
 ## Getting started
 
@@ -155,6 +155,26 @@ ANTHROPIC_API_KEY=your-key docker compose up -d
 
 Design and trade-offs: [ADR-0008](docs/adr/0008-ai-root-cause-analysis.md).
 
+## Postmortems and reports
+
+**Postmortems.** Once an incident is resolved, an SRE clicks **Draft postmortem**. CloudPilot drafts
+the summary, impact, root cause, resolution and prevention actions (with Claude if configured,
+otherwise from a template) and builds the **timeline from recorded events**, which nobody can edit.
+An SRE or admin edits the draft and **approves** it; approval records who approved it and locks the
+document. The root-cause draft quotes the incident's analysis and asks a person to confirm it.
+
+**Reports.** The Reports page shows, for the last 7, 30 or 90 days:
+
+| Metric | Definition |
+|---|---|
+| MTTA | mean time from incident opened to acknowledged |
+| MTTR | mean time from incident opened to resolved (from the first alert) |
+| SLA compliance | share of resolved incidents within target: critical 60 min, warning 4 h, info 24 h |
+| Recurring failures | same resource and same alert once numbers are removed, at least twice |
+| Responders | incidents resolved and mean time to resolve per person |
+
+Details: [ADR-0009](docs/adr/0009-postmortems-and-reliability-metrics.md).
+
 ## API
 
 | Method | Path | Access | Description |
@@ -193,6 +213,11 @@ Design and trade-offs: [ADR-0008](docs/adr/0008-ai-root-cause-analysis.md).
 | DELETE | `/api/v1/runbooks/{slug}` | Admin | Delete a runbook |
 | POST | `/api/v1/incidents/{id}/analysis` | signed in | Ask a question; returns a cited analysis |
 | GET | `/api/v1/incidents/{id}/analysis` | signed in | Latest analysis for the incident |
+| GET | `/api/v1/incidents/{id}/postmortem` | signed in | The postmortem with its fact-based timeline |
+| POST | `/api/v1/incidents/{id}/postmortem/generate` | SRE, Admin | Draft (or redraft) after resolution |
+| PUT | `/api/v1/incidents/{id}/postmortem` | SRE, Admin | Edit the draft |
+| POST | `/api/v1/incidents/{id}/postmortem/approve` | SRE, Admin | Approve and lock |
+| GET | `/api/v1/reports/summary?days=30` | signed in | MTTA, MTTR, SLA, recurring failures, responders |
 
 Errors use [RFC 9457 problem details](https://www.rfc-editor.org/rfc/rfc9457):
 
