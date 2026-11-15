@@ -45,10 +45,9 @@ server:
   port: 8080
 
 management:
-  # In Docker this is 8081 and not published: only Prometheus inside the network can scrape.
-  # Locally and in tests it defaults to the application port.
-  server:
-    port: ${MANAGEMENT_PORT:${server.port}}
+  # Actuator shares the application port by default. In Docker, MANAGEMENT_SERVER_PORT=8081 moves it
+  # to a port that is not published, so only Prometheus inside the network can scrape it.
+  # (Setting it here to ${server.port} would break tests: port 0 means "a separate random port".)
   endpoints:
     web:
       exposure:
