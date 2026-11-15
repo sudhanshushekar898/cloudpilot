@@ -1,6 +1,6 @@
 package dev.cloudpilot.ai;
 
-import java.util.stream.Collectors;
+import static dev.cloudpilot.common.Xml.escape;
 
 /**
  * Builds the prompt for LLM analysis.
@@ -73,16 +73,4 @@ public class PromptBuilder {
         return out.toString();
     }
 
-    static String escape(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.chars().mapToObj(c -> switch (c) {
-            case '&' -> "&amp;";
-            case '<' -> "&lt;";
-            case '>' -> "&gt;";
-            case '"' -> "&quot;";
-            default -> String.valueOf((char) c);
-        }).collect(Collectors.joining());
-    }
 }

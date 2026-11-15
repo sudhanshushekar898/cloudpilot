@@ -79,8 +79,13 @@ public class AnalysisService {
 
     public AnalysisResult latest(UUID incidentId) {
         incidents.detail(incidentId);
-        return store.latest(incidentId)
+        return findLatest(incidentId)
                 .orElseThrow(() -> new NotFoundException("No analysis yet for incident " + incidentId));
+    }
+
+    /** For other modules (postmortems): the latest analysis, if anyone asked for one. */
+    public Optional<AnalysisResult> findLatest(UUID incidentId) {
+        return store.latest(incidentId);
     }
 
     private EvidenceBundle collect(IncidentViews.Detail incident, String question) {

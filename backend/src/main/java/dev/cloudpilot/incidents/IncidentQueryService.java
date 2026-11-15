@@ -78,7 +78,7 @@ public class IncidentQueryService {
                     incident.getTitle(), incident.getStatus(), incident.getSeverity(),
                     assignee == null ? null : assignee.displayName(), alerts.size(),
                     (int) alerts.stream().filter(a -> a.getResolvedAt() == null).count(), resourceNames,
-                    incident.getOpenedAt(), incident.getResolvedAt());
+                    incident.getOpenedAt(), incident.getAcknowledgedAt(), incident.getResolvedAt());
         }).toList();
     }
 

@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import IncidentDetailPage from './pages/IncidentDetailPage'
 import IncidentsPage from './pages/IncidentsPage'
 import LoginPage from './pages/LoginPage'
+import ReportsPage from './pages/ReportsPage'
 import RunbooksPage from './pages/RunbooksPage'
 
 // Recharts is large; load it only when someone opens a resource's charts.
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="incidents" element={<IncidentsPage />} />
           <Route path="incidents/:id" element={<IncidentDetailPage />} />
           <Route path="runbooks" element={<RunbooksPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route
             path="runbooks/:slug"
             element={

@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { to: '/alerts', label: 'Alerts', ready: true },
   { to: '/incidents', label: 'Incidents', ready: true },
   { to: '/runbooks', label: 'Runbooks', ready: true },
-  { to: '/reports', label: 'Reports', ready: false },
+  { to: '/reports', label: 'Reports', ready: true },
 ]
 
 const ROLE_STYLES: Record<Role, string> = {

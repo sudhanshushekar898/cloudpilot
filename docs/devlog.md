@@ -24,6 +24,59 @@ Template for each entry (copy it for every milestone):
   A:
 -->
 
+## 2026-11-15 — M8: Postmortems and reliability reports
+
+**Built:** postmortems (Flyway V11) drafted by Claude or a template after an incident is resolved,
+edited and approved by an SRE or admin, then locked; a timeline built only from recorded events; a
+pure `ReportCalculator` for MTTA, MTTR, SLA compliance, recurring failures and responder stats; a
+reports API. Frontend: a postmortem panel on resolved incidents (draft, edit, approve, read-only
+view) and a Reports page with KPI tiles and tables.
+
+**Decisions and why:**
+- The timeline never comes from the model. It's the factual backbone of a postmortem, so it's
+  built from what was recorded; the AI only drafts the narrative around it (ADR-0009).
+- Human approval locks the document and records who approved it, the same idea as ADR-0002: the
+  AI drafts, people decide.
+- I generalised the Claude gateway to any structured output type (`complete(system, user, Class<T>)`)
+  instead of writing a second client: postmortems reuse the same SDK setup, timeouts and fallbacks.
+- The Claude gateway became an optional Spring bean, so features ask for it with `ObjectProvider`
+  and work without a key.
+- Every metric definition is written down and unit-tested. "MTTR" means different things in
+  different teams; mine starts at the first alert and says so.
+- "No data" instead of 0 when nothing was resolved: a 0-minute MTTR would look like a great result.
+- Report tiles follow stat-tile rules: label, big number, plain ink colours. Status in the SLA table
+  is an icon plus a word, never colour alone.
+
+**What broke / what confused me:**
+- `GET /postmortem` on an unresolved incident returned 409 instead of 404: I built the facts (which
+  require resolution) before checking whether a postmortem existed. The order matters.
+- The approve button saves the screen first (so what's approved is what you see); the test hadn't
+  mocked that save, so approval looked broken.
+- A login test failed at 5.2 s on a loaded machine (Vitest's default limit is 5 s). Raised the
+  per-test limit to 15 s; fast tests are unaffected.
+- The template wrote "…most likely cause. (from the analysis…)": the analysis text already ended with
+  a full stop. Found it in the live run, fixed it test-first.
+- `pgrep` doesn't exist in Git Bash on Windows, which made one of my wait loops misbehave.
+
+**What I learned:**
+- Blameless postmortems: describe systems and decisions, not people.
+- MTTA vs MTTR vs time-to-detect, and why the definition has to be written down.
+- Spring `ObjectProvider` for optional dependencies, and `@ConditionalOnExpression` for beans that
+  only exist when a setting is present.
+
+**Interview questions I can now answer:**
+- Q: How do you stop an AI-written postmortem from inventing facts?
+  A: The timeline is built from recorded events and can't be edited. The model only sees the facts,
+  must use numbers from them, and a person edits and approves the draft. Approval locks it.
+- Q: How do you calculate MTTR, and what's the catch?
+  A: Mean of resolved minus opened for incidents resolved in the window. The catch is that it starts
+  at detection; failures that took a long time to alert look better than they were. That's why
+  alert durations are also a prevention item.
+- Q: What does "recurring failure" mean in your system?
+  A: Same first-affected resource and the same alert text with numbers removed, at least twice in the
+  window, e.g. "orders-db cpu #% > #% for # min". Simple and explainable; it surfaces problems a
+  team keeps patching instead of fixing.
+
 ## 2026-11-15 — M7: AI root-cause analysis
 
 **Built:** a numbered evidence bundle per incident (alerts, distinct logs, all recent deployments,

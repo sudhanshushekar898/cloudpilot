@@ -6,6 +6,7 @@ import AnalysisPanel from '../components/AnalysisPanel'
 import IncidentActions from '../components/IncidentActions'
 import IncidentStatusBadge, { STATUS_LABELS } from '../components/IncidentStatusBadge'
 import IncidentTimeline from '../components/IncidentTimeline'
+import PostmortemPanel from '../components/PostmortemPanel'
 import SeverityBadge from '../components/SeverityBadge'
 import SuggestedRunbooks from '../components/SuggestedRunbooks'
 import { formatDuration, timeAgo } from '../lib/time'
@@ -108,6 +109,8 @@ export default function IncidentDetailPage() {
       </div>
 
       <AnalysisPanel incidentId={incident.id} />
+
+      <PostmortemPanel incidentId={incident.id} resolved={incident.status === 'RESOLVED'} />
 
       <SuggestedRunbooks incidentId={incident.id} />
 
